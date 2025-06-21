@@ -1,8 +1,10 @@
-import * as fs from 'fs-extra';
-import * as path from 'path';
 import * as os from 'os';
-import { AppSettings } from '../types';
+import * as path from 'path';
+
+import * as fs from 'fs-extra';
+
 import { DEFAULT_AGENTS } from '../config/default-agents';
+import { AppSettings } from '../types';
 
 export class SettingsService {
   private settingsPath: string;

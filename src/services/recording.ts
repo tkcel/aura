@@ -1,11 +1,12 @@
-import OpenAI from 'openai';
-import { STTResult } from '../types';
+import OpenAI from "openai";
+
+import { STTResult } from "../types";
 
 export enum RecordingState {
-  IDLE = 'idle',
-  RECORDING = 'recording',
-  PROCESSING = 'processing',
-  ERROR = 'error'
+  IDLE = "idle",
+  RECORDING = "recording",
+  PROCESSING = "processing",
+  ERROR = "error",
 }
 
 export interface RecordingEventHandlers {
@@ -55,7 +56,7 @@ export class RecordingService {
   }
 
   private handleError(error: Error): void {
-    console.error('Recording error:', error);
+    console.error("Recording error:", error);
     this.setState(RecordingState.ERROR);
     this.cleanup();
     this.eventHandlers.onError?.(error);
@@ -67,8 +68,8 @@ export class RecordingService {
     }
 
     try {
-      console.log('🎤 Requesting microphone access...');
-      
+      console.log("🎤 Requesting microphone access...");
+
       // Request microphone access
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -76,15 +77,15 @@ export class RecordingService {
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
-        }
+          autoGainControl: true,
+        },
       });
 
       // Create MediaRecorder
       const mimeType = this.getSupportedMimeType();
       this.mediaRecorder = new MediaRecorder(this.mediaStream, {
         mimeType,
-        audioBitsPerSecond: 128000
+        audioBitsPerSecond: 128000,
       });
 
       // Setup event handlers
@@ -94,12 +95,13 @@ export class RecordingService {
       this.audioChunks = [];
       this.recordingStartTime = new Date();
       this.mediaRecorder.start(100); // Collect data every 100ms
-      
-      this.setState(RecordingState.RECORDING);
-      console.log('✅ Recording started successfully');
 
+      this.setState(RecordingState.RECORDING);
+      console.log("✅ Recording started successfully");
     } catch (error) {
-      this.handleError(new Error(`Failed to start recording: ${error.message}`));
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.handleError(new Error(`Failed to start recording: ${errorMessage}`));
       throw error;
     }
   }
@@ -110,16 +112,17 @@ export class RecordingService {
     }
 
     try {
-      console.log('🛑 Stopping recording...');
-      
-      if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+      console.log("🛑 Stopping recording...");
+
+      if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
         this.mediaRecorder.stop();
       }
-      
-      this.setState(RecordingState.PROCESSING);
 
+      this.setState(RecordingState.PROCESSING);
     } catch (error) {
-      this.handleError(new Error(`Failed to stop recording: ${error.message}`));
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.handleError(new Error(`Failed to stop recording: ${errorMessage}`));
       throw error;
     }
   }
@@ -134,12 +137,16 @@ export class RecordingService {
     };
 
     this.mediaRecorder.onstop = () => {
-      console.log('📁 Recording stopped, processing audio...');
+      console.log("📁 Recording stopped, processing audio...");
       this.processRecording();
     };
 
     this.mediaRecorder.onerror = (event) => {
-      this.handleError(new Error(`MediaRecorder error: ${event.error?.message || 'Unknown error'}`));
+      this.handleError(
+        new Error(
+          `MediaRecorder error: ${event.error?.message || "Unknown error"}`
+        )
+      );
     };
   }
 
@@ -149,21 +156,21 @@ export class RecordingService {
   private async processRecording(): Promise<void> {
     try {
       if (this.audioChunks.length === 0) {
-        throw new Error('No audio data recorded');
+        throw new Error("No audio data recorded");
       }
 
       // Create audio blob
       const mimeType = this.getSupportedMimeType();
       const audioBlob = new Blob(this.audioChunks, { type: mimeType });
-      
-      console.log('📊 Audio blob created:', {
+
+      console.log("📊 Audio blob created:", {
         size: audioBlob.size,
         type: audioBlob.type,
-        sizeKB: Math.round(audioBlob.size / 1024)
+        sizeKB: Math.round(audioBlob.size / 1024),
       });
 
       if (audioBlob.size === 0) {
-        throw new Error('Recorded audio is empty');
+        throw new Error("Recorded audio is empty");
       }
 
       // Store the audio blob for later transcription
@@ -173,30 +180,41 @@ export class RecordingService {
       // Clean up resources
       this.cleanup();
 
-      // Set to idle state 
+      // Set to idle state
       this.setState(RecordingState.IDLE);
 
-      console.log('🎵 Recording processing complete, ready for transcription');
-
+      console.log("🎵 Recording processing complete, ready for transcription");
     } catch (error) {
-      this.handleError(new Error(`Failed to process recording: ${error.message}`));
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.handleError(
+        new Error(`Failed to process recording: ${errorMessage}`)
+      );
     }
   }
 
-  public async transcribeLatestRecording(apiKey: string, language = 'ja', saveAudioFile = false): Promise<{ result: STTResult; audioFilePath?: string }> {
+  public async transcribeLatestRecording(
+    apiKey: string,
+    language = "ja",
+    saveAudioFile = false
+  ): Promise<{ result: STTResult; audioFilePath?: string }> {
     if (!this.currentAudioBlob) {
-      throw new Error('No recording available for transcription');
+      throw new Error("No recording available for transcription");
     }
 
     let audioFilePath: string | undefined;
-    
+
     if (saveAudioFile) {
       audioFilePath = await this.saveAudioFileViaIPC(this.currentAudioBlob);
       this.currentAudioPath = audioFilePath;
     }
 
-    const result = await this.transcribeAudio(this.currentAudioBlob, apiKey, language);
-    
+    const result = await this.transcribeAudio(
+      this.currentAudioBlob,
+      apiKey,
+      language
+    );
+
     this.currentAudioBlob = null;
     return { result, audioFilePath };
   }
@@ -208,78 +226,84 @@ export class RecordingService {
   public getRecordingDuration(): number | null {
     if (!this.recordingStartTime) return null;
     const endTime = new Date();
-    return Math.round((endTime.getTime() - this.recordingStartTime.getTime()) / 1000);
+    return Math.round(
+      (endTime.getTime() - this.recordingStartTime.getTime()) / 1000
+    );
   }
 
   private async saveAudioFileViaIPC(audioBlob: Blob): Promise<string> {
     const arrayBuffer = await audioBlob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    
+
     const result = await window.electronAPI.saveAudioFile({
       data: Array.from(uint8Array),
-      mimeType: audioBlob.type
+      mimeType: audioBlob.type,
     });
-    
-    console.log('💾 Audio file saved:', result.filePath);
+
+    console.log("💾 Audio file saved:", result.filePath);
     return result.filePath;
   }
 
-  public async transcribeAudio(audioBlob: Blob, apiKey: string, language = 'ja'): Promise<STTResult> {
+  public async transcribeAudio(
+    audioBlob: Blob,
+    apiKey: string,
+    language = "ja"
+  ): Promise<STTResult> {
     try {
-      if (!apiKey || !apiKey.startsWith('sk-')) {
+      if (!apiKey || !apiKey.startsWith("sk-")) {
         // Mock implementation for testing
-        console.log('Using mock transcription service');
+        console.log("Using mock transcription service");
         return {
           text: "これはテスト用の音声認識結果です。実際のAPIキーを設定すると、OpenAI Whisperが使用されます。",
           language: language,
-          confidence: 0.95
+          confidence: 0.95,
         };
       }
 
-      console.log('🤖 Starting transcription with OpenAI Whisper...');
-      
-      const openai = new OpenAI({ 
+      console.log("🤖 Starting transcription with OpenAI Whisper...");
+
+      const openai = new OpenAI({
         apiKey,
-        dangerouslyAllowBrowser: true
+        dangerouslyAllowBrowser: true,
       });
 
       // Create File object from Blob
       const filename = `recording-${Date.now()}.webm`;
       const audioFile = new File([audioBlob], filename, {
-        type: audioBlob.type
+        type: audioBlob.type,
       });
 
       const transcription = await openai.audio.transcriptions.create({
         file: audioFile,
-        model: 'whisper-1',
-        language: language === 'auto' ? undefined : language,
-        response_format: 'json'
+        model: "whisper-1",
+        language: language === "auto" ? undefined : language,
+        response_format: "json",
       });
 
       const result: STTResult = {
         text: transcription.text,
         language: language,
-        confidence: 0.95
+        confidence: 0.95,
       };
 
-      console.log('✅ Transcription successful:', result.text);
+      console.log("✅ Transcription successful:", result.text);
       this.eventHandlers.onTranscriptionComplete?.(result);
-      
-      return result;
 
+      return result;
     } catch (error) {
-      console.error('Transcription failed:', error);
-      const errorMessage = error.message || 'Unknown transcription error';
+      console.error("Transcription failed:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Transcription failed: ${errorMessage}`);
     }
   }
 
   private getSupportedMimeType(): string {
     const types = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-      'audio/ogg;codecs=opus'
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/ogg;codecs=opus",
     ];
 
     for (const type of types) {
@@ -289,14 +313,14 @@ export class RecordingService {
       }
     }
 
-    console.warn('No preferred MIME type supported, using default');
-    return 'audio/webm';
+    console.warn("No preferred MIME type supported, using default");
+    return "audio/webm";
   }
 
   private cleanup(): void {
     // Stop media stream
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach(track => {
+      this.mediaStream.getTracks().forEach((track) => {
         track.stop();
       });
       this.mediaStream = null;
@@ -305,13 +329,13 @@ export class RecordingService {
     // Clean up MediaRecorder
     this.mediaRecorder = null;
     this.audioChunks = [];
-    
+
     // Reset recording time but keep audio path for history
     this.recordingStartTime = null;
   }
 
   public forceReset(): void {
-    console.log('🔄 Force resetting recording service...');
+    console.log("🔄 Force resetting recording service...");
     this.cleanup();
     this.setState(RecordingState.IDLE);
     this.currentAudioPath = null;

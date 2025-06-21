@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry } from '../types';
+
 import { RecordingService, RecordingState } from '../services/recording';
+import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult } from '../types';
 
 interface AppContextState {
   settings: AppSettings | null;
@@ -260,38 +261,45 @@ export function AppProvider({ children }: AppProviderProps) {
       });
 
       if (llmResult.success) {
-        const result: ProcessingResult = {
-          agentId: state.selectedAgent,
-          sttResult,
-          llmResult: llmResult.result,
-          timestamp: new Date()
-        };
+        // 型ガード
+        const resultObj = llmResult.result;
+        if (
+          typeof resultObj === 'object' && resultObj !== null &&
+          'text' in resultObj && typeof (resultObj as unknown as { text: unknown }).text === 'string' &&
+          'model' in resultObj && typeof (resultObj as unknown as { model: unknown }).model === 'string' &&
+          'tokensUsed' in resultObj && typeof (resultObj as unknown as { tokensUsed: unknown }).tokensUsed === 'number'
+        ) {
+          const llmTyped: LLMResult = resultObj as LLMResult;
+          const result: ProcessingResult = {
+            agentId: state.selectedAgent,
+            sttResult,
+            llmResult: llmTyped,
+            timestamp: new Date()
+          };
+          dispatch({ type: 'SET_LLM_RESULT', payload: result });
+          dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
 
-        dispatch({ type: 'SET_LLM_RESULT', payload: result });
-        dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
+          // Auto-copy to clipboard
+          await copyToClipboard(llmTyped.text);
 
-        // Auto-copy to clipboard
-        await copyToClipboard(llmResult.result.text);
-
-        // Add to history
-        const duration = recordingService.getRecordingDuration();
-        const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
-        
-        const historyEntry: Omit<HistoryEntry, 'id'> = {
-          agentId: state.selectedAgent,
-          agentName: agent?.name || 'Unknown Agent',
-          transcription: sttResult.text,
-          response: llmResult.result.text,
-          timestamp: new Date(),
-          audioFilePath,
-          duration
-        };
-        
-        const historyId = await window.electronAPI.addHistoryEntry(historyEntry);
-        const newHistoryEntry: HistoryEntry = { id: historyId, ...historyEntry };
-        dispatch({ type: 'ADD_HISTORY_ENTRY', payload: newHistoryEntry });
-        
-        // Note: Cleanup is now handled by the main process based on settings
+          // Add to history
+          const duration = recordingService.getRecordingDuration() ?? undefined;
+          const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
+          const historyEntry: Omit<HistoryEntry, 'id'> = {
+            agentId: state.selectedAgent,
+            agentName: agent?.name || 'Unknown Agent',
+            transcription: sttResult.text,
+            response: llmTyped.text,
+            timestamp: new Date(),
+            audioFilePath,
+            duration
+          };
+          const historyId = await window.electronAPI.addHistoryEntry(historyEntry);
+          const newHistoryEntry: HistoryEntry = { id: historyId, ...historyEntry };
+          dispatch({ type: 'ADD_HISTORY_ENTRY', payload: newHistoryEntry });
+        } else {
+          throw new Error('LLM result 型不正');
+        }
 
         // After a brief moment, return to IDLE state
         setTimeout(() => {

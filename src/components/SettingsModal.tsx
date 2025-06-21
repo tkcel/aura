@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import { useApp } from '../context/AppContext';
 
 interface SettingsModalProps {
@@ -24,16 +25,30 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   useEffect(() => {
     if (settings) {
       setFormData({
-        openaiApiKey: settings.openaiApiKey,
-        language: settings.language,
-        autoStartup: settings.autoStartup,
-        systemTray: settings.systemTray,
-        soundNotifications: settings.soundNotifications,
-        saveAudioFiles: settings.saveAudioFiles,
-        maxHistoryEntries: settings.maxHistoryEntries,
+        openaiApiKey: settings.openaiApiKey || '',
+        language: settings.language || 'auto',
+        autoStartup: settings.autoStartup || false,
+        systemTray: settings.systemTray !== undefined ? settings.systemTray : true,
+        soundNotifications: settings.soundNotifications !== undefined ? settings.soundNotifications : true,
+        saveAudioFiles: settings.saveAudioFiles || false,
+        maxHistoryEntries: settings.maxHistoryEntries || 100,
       });
     }
   }, [settings]);
+
+  // Show loading state while settings are being loaded
+  if (!settings) {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 shadow-2xl">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+            <span className="text-gray-700">設定を読み込み中...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleInputChange = (field: string, value: string | boolean | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));

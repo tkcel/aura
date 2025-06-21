@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
+
 import { AppProvider, useApp } from '../context/AppContext';
-import Header from './Header';
+import { AppState } from '../types';
+
 import AgentSection from './AgentSection';
+import BarWindow from './BarWindow';
+import Header from './Header';
+import HistorySection from './HistorySection';
+import ProcessingOverlay from './ProcessingOverlay';
 import RecordingControls from './RecordingControls';
 import ResultsSection from './ResultsSection';
-import HistorySection from './HistorySection';
 import SettingsModal from './SettingsModal';
-import ProcessingOverlay from './ProcessingOverlay';
-import BarWindow from './BarWindow';
-import { AppState } from '../types';
 
 function AppContent() {
   const { currentState, error, clearError, history, deleteHistoryEntry, clearHistory, playAudioFile, copyToClipboard } = useApp();
@@ -33,22 +35,29 @@ function AppContent() {
   // Render bar window for desktop bar mode
   if (windowMode === 'bar') {
     return (
-      <div className="h-full flex items-center justify-center p-2">
-        <BarWindow />
-        {error && (
-          <div className="fixed bottom-16 right-4 bg-red-500 text-white px-3 py-1 rounded text-xs shadow-lg max-w-xs">
-            <div className="flex justify-between items-center">
-              <span>{error}</span>
-              <button 
-                onClick={clearError}
-                className="ml-2 text-white hover:text-gray-200 text-xs"
-              >
-                ✕
-              </button>
+      <>
+        <style dangerouslySetInnerHTML={{ __html: `
+          html, body, #root {
+            background: transparent !important;
+          }
+        `}} />
+        <div className="h-full w-full">
+          <BarWindow />
+          {error && (
+            <div className="fixed bottom-4 left-4 bg-red-500 text-white px-3 py-1 rounded text-xs shadow-lg max-w-xs" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+              <div className="flex justify-between items-center">
+                <span>{error}</span>
+                <button 
+                  onClick={clearError}
+                  className="ml-2 text-white hover:text-gray-200 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </>
     );
   }
 

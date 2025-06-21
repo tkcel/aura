@@ -123,4 +123,24 @@
   .glass-strong {
     @apply bg-white/95 backdrop-blur-md border border-white/20;
   }
+  
+  /* Remove default focus outline for floating button */
+  .floating-menu button:focus {
+    @apply outline-none;
+  }
+  
+  /* Custom animation for processing state */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  /* Disable text selection for cleaner UI */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
