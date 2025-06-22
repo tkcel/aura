@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import {
   app,
   BrowserWindow,
@@ -32,6 +33,9 @@ class AuraApp {
 
   /** Settings window instance for configuration */
   private settingsWindow: BrowserWindow | null = null;
+
+  /** Result window instance for displaying processing results */
+  private resultWindow: BrowserWindow | null = null;
 
   /** System tray instance */
   private tray: Tray | null = null;
@@ -310,6 +314,25 @@ class AuraApp {
         this.barWindow.setIgnoreMouseEvents(ignore, { forward: true });
       }
     });
+
+    // Cursor state detection and auto-paste
+    ipcMain.handle("check-cursor-state", async () => {
+      return this.checkCursorState();
+    });
+
+    ipcMain.handle("paste-text", async (_, text: string) => {
+      return this.pasteText(text);
+    });
+
+    ipcMain.handle("show-result-window", () => {
+      this.showResultWindow();
+    });
+
+    ipcMain.handle("close-result-window", () => {
+      if (this.resultWindow) {
+        this.resultWindow.close();
+      }
+    });
   }
 
   /**
@@ -325,6 +348,10 @@ class AuraApp {
     // Send to settings window if open
     if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
       this.settingsWindow.webContents.send(channel, data);
+    }
+    // Send to result window if open
+    if (this.resultWindow && !this.resultWindow.isDestroyed()) {
+      this.resultWindow.webContents.send(channel, data);
     }
   }
 
@@ -451,6 +478,11 @@ class AuraApp {
     this.barWindow.once("ready-to-show", () => {
       this.barWindow?.show();
 
+      // Open DevTools in development mode
+      if (process.env.NODE_ENV === "development" && this.barWindow) {
+        this.barWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+
       // Force window to front on macOS
       if (process.platform === "darwin" && this.barWindow) {
         this.barWindow.focus();
@@ -521,17 +553,17 @@ class AuraApp {
     this.settingsWindow.once("ready-to-show", () => {
       this.settingsWindow?.show();
       this.settingsWindow?.focus();
+
+      // Open DevTools in development mode
+      if (process.env.NODE_ENV === "development" && this.settingsWindow) {
+        this.settingsWindow.webContents.openDevTools({ mode: 'detach' });
+      }
     });
 
     // Handle window closed
     this.settingsWindow.on("closed", () => {
       this.settingsWindow = null;
     });
-
-    // DevTools can be opened manually if needed
-    // if (process.env.NODE_ENV === 'development') {
-    //   this.settingsWindow.webContents.openDevTools();
-    // }
   }
 
   /**
@@ -737,6 +769,150 @@ class AuraApp {
     if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
       this.settingsWindow.destroy();
     }
+
+    if (this.resultWindow && !this.resultWindow.isDestroyed()) {
+      this.resultWindow.destroy();
+    }
+  }
+
+  /**
+   * Check if the system cursor is in an input state (text field focused)
+   */
+  private async checkCursorState(): Promise<boolean> {
+    console.log('🔍 [Main] checkCursorState called, platform:', process.platform);
+    try {
+      // Get the currently focused application
+      if (process.platform === 'darwin') {
+        // On macOS, we can use AppleScript to check if current app has text input focus
+        console.log('🔍 [Main] Using AppleScript to check cursor state');
+        try {
+          const script = `
+            tell application "System Events"
+              set frontApp to name of first application process whose frontmost is true
+              set focusedElement to focused element of application process frontApp
+              if focusedElement is not missing value then
+                set elementRole to role of focusedElement
+                if elementRole is in {"AXTextField", "AXTextArea", "AXComboBox"} then
+                  return "true"
+                end if
+              end if
+              return "false"
+            end tell
+          `;
+          const result = execSync(`osascript -e '${script}'`, { encoding: 'utf8' }).trim();
+          console.log('🔍 [Main] AppleScript result:', result);
+          const isInputFocused = result === 'true';
+          console.log('🔍 [Main] Input focused:', isInputFocused);
+          return isInputFocused;
+        } catch (error) {
+          console.warn('Failed to check cursor state via AppleScript:', error);
+          return false;
+        }
+      } else if (process.platform === 'win32') {
+        // On Windows, we can use native APIs to check if current window has text input
+        // For now, we'll return false as a fallback
+        return false;
+      } else {
+        // Linux - return false as fallback
+        return false;
+      }
+    } catch (error) {
+      console.warn('Failed to check cursor state:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Paste text to the currently focused application
+   */
+  private async pasteText(text: string): Promise<boolean> {
+    console.log('📋 [Main] pasteText called with text length:', text.length);
+    try {
+      // Copy text to clipboard first
+      clipboard.writeText(text);
+      console.log('📋 [Main] Text copied to clipboard');
+      
+      // Simulate Cmd+V (or Ctrl+V on Windows/Linux)
+      if (process.platform === 'darwin') {
+        console.log('📋 [Main] Sending Cmd+V keystroke via AppleScript');
+        execSync(`osascript -e 'tell application "System Events" to keystroke "v" using command down'`);
+        console.log('📋 [Main] Keystroke sent successfully');
+      } else {
+        // For Windows/Linux, we would need additional native modules
+        // For now, just copy to clipboard
+        console.log('Text copied to clipboard, manual paste required on this platform');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to paste text:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Show the result window with processing results
+   */
+  private showResultWindow(): void {
+    console.log('🪟 [Main] showResultWindow called');
+    if (this.resultWindow && !this.resultWindow.isDestroyed()) {
+      console.log('🪟 [Main] Result window already exists, focusing');
+      this.resultWindow.focus();
+      return;
+    }
+
+    console.log('🪟 [Main] Creating new result window');
+
+    this.resultWindow = new BrowserWindow({
+      width: 400,
+      height: 300,
+      show: false,
+      frame: true,
+      resizable: true,
+      minimizable: true,
+      maximizable: false,
+      fullscreenable: false,
+      titleBarStyle: 'default',
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: true,
+      },
+    });
+
+    // Load the result interface
+    if (process.env.NODE_ENV === 'development') {
+      this.resultWindow.loadURL('http://localhost:5173/?mode=result');
+    } else {
+      this.resultWindow.loadFile(
+        path.join(__dirname, '../renderer/main_window/index.html'),
+        {
+          query: { mode: 'result' },
+        }
+      );
+    }
+
+    this.resultWindow.once('ready-to-show', () => {
+      console.log('🪟 [Main] Result window ready to show');
+      if (this.resultWindow) {
+        this.resultWindow.show();
+        this.resultWindow.focus();
+        console.log('🪟 [Main] Result window shown and focused');
+
+        // Open DevTools in development mode
+        if (process.env.NODE_ENV === "development") {
+          this.resultWindow.webContents.openDevTools({ mode: 'detach' });
+        }
+      }
+    });
+
+    this.resultWindow.on('closed', () => {
+      this.resultWindow = null;
+    });
+
+    // Center the window on the screen
+    this.resultWindow.center();
   }
 }
 

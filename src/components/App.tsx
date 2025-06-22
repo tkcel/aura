@@ -3,19 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from '../context/AppContext';
 import { AppState } from '../types';
 
-import AgentSection from './AgentSection';
 import BarWindow from './BarWindow';
 import Header from './Header';
-import HistorySection from './HistorySection';
+import HistoryScreen from './HistoryScreen';
+import ModeEditScreen from './ModeEditScreen';
 import ProcessingOverlay from './ProcessingOverlay';
-import RecordingControls from './RecordingControls';
-import ResultsSection from './ResultsSection';
-import SettingsModal from './SettingsModal';
+import RecordingScreen from './RecordingScreen';
+import ResultWindow from './ResultWindow';
+import SettingsScreen from './SettingsScreen';
+import TabNavigation from './TabNavigation';
 
 function AppContent() {
-  const { currentState, error, clearError, history, deleteHistoryEntry, clearHistory, playAudioFile, copyToClipboard } = useApp();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [windowMode, setWindowMode] = useState<'bar' | 'settings'>('settings');
+  const { currentState, error, clearError } = useApp();
+  const [activeTab, setActiveTab] = useState('recording');
+  const [windowMode, setWindowMode] = useState<'bar' | 'settings' | 'result'>('settings');
 
   // Detect window mode from URL parameters
   useEffect(() => {
@@ -23,6 +24,8 @@ function AppContent() {
     const mode = urlParams.get('mode');
     if (mode === 'bar') {
       setWindowMode('bar');
+    } else if (mode === 'result') {
+      setWindowMode('result');
     } else {
       setWindowMode('settings');
     }
@@ -61,27 +64,35 @@ function AppContent() {
     );
   }
 
+  // Render result window
+  if (windowMode === 'result') {
+    return <ResultWindow />;
+  }
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'recording':
+        return <RecordingScreen />;
+      case 'mode-edit':
+        return <ModeEditScreen />;
+      case 'history':
+        return <HistoryScreen />;
+      case 'settings':
+        return <SettingsScreen />;
+      default:
+        return <RecordingScreen />;
+    }
+  };
+
   // Render full settings window
   return (
     <div className="h-screen flex flex-col">
-      <Header onSettingsClick={() => setIsSettingsOpen(true)} />
+      <Header />
+      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       
-      <main className="flex-1 p-8 overflow-y-auto bg-white/10">
-        <AgentSection />
-        <RecordingControls />
-        <ResultsSection />
-        <HistorySection 
-          history={history}
-          onDeleteEntry={deleteHistoryEntry}
-          onClearHistory={clearHistory}
-          onPlayAudio={playAudioFile}
-          onCopyText={copyToClipboard}
-        />
+      <main className="flex-1 overflow-y-auto bg-white/10">
+        {renderTabContent()}
       </main>
-
-      {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
-      )}
 
       {showProcessingOverlay && <ProcessingOverlay />}
 

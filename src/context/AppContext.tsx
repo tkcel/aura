@@ -12,6 +12,7 @@ interface AppContextState {
   llmResult: ProcessingResult | null;
   error: string | null;
   history: HistoryEntry[];
+  pendingTranscription: string | null;
 }
 
 type AppAction =
@@ -24,7 +25,8 @@ type AppAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'CLEAR_RESULTS' }
   | { type: 'SET_HISTORY'; payload: HistoryEntry[] }
-  | { type: 'ADD_HISTORY_ENTRY'; payload: HistoryEntry };
+  | { type: 'ADD_HISTORY_ENTRY'; payload: HistoryEntry }
+  | { type: 'SET_PENDING_TRANSCRIPTION'; payload: string | null };
 
 const initialState: AppContextState = {
   settings: null,
@@ -35,6 +37,7 @@ const initialState: AppContextState = {
   llmResult: null,
   error: null,
   history: [],
+  pendingTranscription: null,
 };
 
 function appReducer(state: AppContextState, action: AppAction): AppContextState {
@@ -59,6 +62,8 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
       return { ...state, history: action.payload };
     case 'ADD_HISTORY_ENTRY':
       return { ...state, history: [action.payload, ...state.history] };
+    case 'SET_PENDING_TRANSCRIPTION':
+      return { ...state, pendingTranscription: action.payload };
     default:
       return state;
   }
@@ -77,6 +82,8 @@ interface AppContextValue extends AppContextState {
   deleteHistoryEntry: (id: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   playAudioFile: (filePath: string) => void;
+  processWithAi: (transcription: string) => Promise<void>;
+  skipAiProcessing: () => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -225,7 +232,9 @@ export function AppProvider({ children }: AppProviderProps) {
       
       const sttResult = transcriptionResult.result;
       
+      console.log('🎯 STT result received:', sttResult.text);
       dispatch({ type: 'SET_STT_RESULT', payload: sttResult });
+      console.log('🎯 Calling processTranscriptionResult...');
       await processTranscriptionResult(sttResult, transcriptionResult.audioFilePath);
       
     } catch (error) {
@@ -243,7 +252,31 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   const processTranscriptionResult = async (sttResult: STTResult, audioFilePath?: string) => {
+    console.log('🎯 processTranscriptionResult called with:', { 
+      sttText: sttResult.text, 
+      selectedAgent: state.selectedAgent,
+      hasSettings: !!state.settings 
+    });
     if (!state.selectedAgent || !state.settings) return;
+
+    // Get the selected agent configuration
+    const selectedAgentConfig = state.settings.agents.find(a => a.id === state.selectedAgent);
+    if (!selectedAgentConfig) {
+      dispatch({ type: 'SET_ERROR', payload: 'Selected agent not found' });
+      return;
+    }
+
+    // Check if AI processing is enabled for this agent
+    console.log('🎯 Agent autoProcessAi setting:', selectedAgentConfig.autoProcessAi);
+    if (!selectedAgentConfig.autoProcessAi) {
+      console.log('🎯 AI processing disabled for this agent, setting pending transcription');
+      // Set as pending transcription for user to decide
+      dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: sttResult.text });
+      dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+      return;
+    }
+
+    console.log('🎯 AI processing enabled, proceeding with LLM processing');
 
     try {
       dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
@@ -278,6 +311,24 @@ export function AppProvider({ children }: AppProviderProps) {
           };
           dispatch({ type: 'SET_LLM_RESULT', payload: result });
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
+
+          // Check if we should auto-paste or show result window
+          console.log('🔍 Checking cursor state...');
+          const shouldAutoPaste = await window.electronAPI.checkCursorState?.();
+          console.log('🔍 Cursor state result:', shouldAutoPaste);
+          
+          // Temporary: Always show result window for debugging
+          console.log('🪟 [DEBUG] Always showing result window for debugging...');
+          await window.electronAPI.showResultWindow?.();
+          
+          // if (shouldAutoPaste) {
+          //   console.log('📋 Auto-pasting text...');
+          //   await window.electronAPI.pasteText?.((llmTyped.text));
+          // } else {
+          //   console.log('🪟 Showing result window...');
+          //   // Show result in small window
+          //   await window.electronAPI.showResultWindow?.();
+          // }
 
           // Auto-copy to clipboard
           await copyToClipboard(llmTyped.text);
@@ -397,6 +448,97 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
+  const processWithAi = async (transcription: string) => {
+    if (!state.selectedAgent || !state.settings) return;
+
+    try {
+      dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
+
+      const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
+      if (!agent) {
+        throw new Error('Selected agent not found');
+      }
+
+      const llmResult = await window.electronAPI.processWithLLM({
+        text: transcription,
+        agentId: state.selectedAgent
+      });
+
+      if (llmResult.success) {
+        const resultObj = llmResult.result;
+        if (
+          typeof resultObj === 'object' && resultObj !== null &&
+          'text' in resultObj && typeof (resultObj as { text: unknown }).text === 'string' &&
+          'model' in resultObj && typeof (resultObj as { model: unknown }).model === 'string' &&
+          'tokensUsed' in resultObj && typeof (resultObj as { tokensUsed: unknown }).tokensUsed === 'number'
+        ) {
+          const result: ProcessingResult = {
+            agentId: state.selectedAgent,
+            sttResult: { text: transcription, language: 'ja', confidence: 0.95 },
+            llmResult: resultObj as LLMResult,
+            timestamp: new Date()
+          };
+          dispatch({ type: 'SET_LLM_RESULT', payload: result });
+          dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
+          dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: null });
+          
+          // Check if we should auto-paste or show result window
+          console.log('🔍 [Manual] Checking cursor state...');
+          const shouldAutoPaste = await window.electronAPI.checkCursorState?.();
+          console.log('🔍 [Manual] Cursor state result:', shouldAutoPaste);
+          
+          // Temporary: Always show result window for debugging
+          console.log('🪟 [DEBUG] [Manual] Always showing result window for debugging...');
+          await window.electronAPI.showResultWindow?.();
+          
+          // if (shouldAutoPaste) {
+          //   console.log('📋 [Manual] Auto-pasting text...');
+          //   await window.electronAPI.pasteText?.((resultObj as LLMResult).text);
+          // } else {
+          //   console.log('🪟 [Manual] Showing result window...');
+          //   // Show result in small window
+          //   await window.electronAPI.showResultWindow?.();
+          // }
+
+          await copyToClipboard((resultObj as LLMResult).text);
+
+          // Add to history
+          const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
+          const historyEntry: Omit<HistoryEntry, 'id'> = {
+            agentId: state.selectedAgent,
+            agentName: agent?.name || 'Unknown Agent',
+            transcription: transcription,
+            response: (resultObj as LLMResult).text,
+            timestamp: new Date(),
+          };
+          const historyId = await window.electronAPI.addHistoryEntry(historyEntry);
+          const newHistoryEntry: HistoryEntry = { id: historyId, ...historyEntry };
+          dispatch({ type: 'ADD_HISTORY_ENTRY', payload: newHistoryEntry });
+
+          setTimeout(() => {
+            dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+          }, 3000);
+        }
+      } else {
+        throw new Error(llmResult.error || 'LLM processing failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
+      
+      setTimeout(() => {
+        dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+        dispatch({ type: 'SET_ERROR', payload: null });
+      }, 5000);
+    }
+  };
+
+  const skipAiProcessing = () => {
+    dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: null });
+    dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+  };
+
   const setupElectronListeners = () => {
     // State changes
     window.electronAPI.onStateChanged((newState: AppState) => {
@@ -434,6 +576,8 @@ export function AppProvider({ children }: AppProviderProps) {
     deleteHistoryEntry,
     clearHistory,
     playAudioFile,
+    processWithAi,
+    skipAiProcessing,
   };
 
   return (

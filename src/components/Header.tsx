@@ -3,11 +3,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { AppState } from '../types';
 
-interface HeaderProps {
-  onSettingsClick: () => void;
-}
-
-export default function Header({ onSettingsClick }: HeaderProps) {
+export default function Header() {
   const { currentState } = useApp();
 
   const getStatusText = () => {
@@ -53,20 +49,11 @@ export default function Header({ onSettingsClick }: HeaderProps) {
           🎯 Aura
         </h1>
         
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onSettingsClick}
-            className="btn btn-secondary"
-          >
-            ⚙️ 設定
-          </button>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">
-              {getStatusText()}
-            </span>
-            <div className={`status-dot ${getStatusDotClass()}`} />
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">
+            {getStatusText()}
+          </span>
+          <div className={`status-dot ${getStatusDotClass()}`} />
         </div>
       </div>
     </header>

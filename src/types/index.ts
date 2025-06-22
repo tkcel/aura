@@ -6,6 +6,8 @@ export interface Agent {
   model: string;
   temperature: number;
   enabled: boolean;
+  autoProcessAi: boolean;
+  color: string;
 }
 
 export interface AppSettings {

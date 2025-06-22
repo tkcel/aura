@@ -13,7 +13,9 @@ export const DEFAULT_AGENTS: Agent[] = [
 - 話し言葉を自然な文章に整える`,
     model: 'gpt-4',
     temperature: 0.3,
-    enabled: true
+    enabled: true,
+    autoProcessAi: true,
+    color: '#3b82f6'
   },
   {
     id: 'document-creation',
@@ -27,7 +29,9 @@ export const DEFAULT_AGENTS: Agent[] = [
 - 簡潔で分かりやすい表現に変換`,
     model: 'gpt-4',
     temperature: 0.7,
-    enabled: true
+    enabled: true,
+    autoProcessAi: true,
+    color: '#10b981'
   },
   {
     id: 'search-keywords',
@@ -41,7 +45,9 @@ export const DEFAULT_AGENTS: Agent[] = [
 - 検索オペレーター付きクエリ例`,
     model: 'gpt-4',
     temperature: 0.5,
-    enabled: true
+    enabled: true,
+    autoProcessAi: true,
+    color: '#f59e0b'
   },
   {
     id: 'text-qa',
@@ -55,7 +61,9 @@ export const DEFAULT_AGENTS: Agent[] = [
 - 不明な点があれば明示する`,
     model: 'gpt-4',
     temperature: 0.6,
-    enabled: true
+    enabled: true,
+    autoProcessAi: true,
+    color: '#8b5cf6'
   },
   {
     id: 'image-qa',
@@ -69,7 +77,9 @@ export const DEFAULT_AGENTS: Agent[] = [
 4. 必要に応じて画像の特定部分を指摘`,
     model: 'gpt-4-vision-preview',
     temperature: 0.7,
-    enabled: true
+    enabled: true,
+    autoProcessAi: false,
+    color: '#ef4444'
   },
   {
     id: 'web-automation',
@@ -83,6 +93,8 @@ export const DEFAULT_AGENTS: Agent[] = [
 - 実行前の確認事項`,
     model: 'gpt-4',
     temperature: 0.8,
-    enabled: true
+    enabled: true,
+    autoProcessAi: true,
+    color: '#06b6d4'
   }
 ];

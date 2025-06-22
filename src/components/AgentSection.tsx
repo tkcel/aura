@@ -38,10 +38,16 @@ export default function AgentSection() {
               }
             `}
           >
-            <div className={`font-semibold mb-2 ${
-              selectedAgent === agent.id ? 'text-white' : 'text-gray-800'
-            }`}>
-              {agent.name}
+            <div className="flex items-center justify-between mb-2">
+              <div className={`font-semibold ${
+                selectedAgent === agent.id ? 'text-white' : 'text-gray-800'
+              }`}>
+                {agent.name}
+              </div>
+              <div 
+                className="w-3 h-3 rounded-full border border-gray-400"
+                style={{ backgroundColor: agent.color }}
+              />
             </div>
             <div className={`text-sm px-2 py-1 rounded inline-block ${
               selectedAgent === agent.id 

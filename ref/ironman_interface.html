@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS Interface System</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: radial-gradient(ellipse at center, #1a1a1a 0%, #000000 100%);
+            color: #ffffff;
+            font-family: 'Orbitron', monospace;
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Background particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #ffffff;
+            opacity: 0.4;
+            animation: float 6s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.4; }
+            90% { opacity: 0.4; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+        
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 10;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 20px #ffffff;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { text-shadow: 0 0 20px #ffffff; }
+            50% { text-shadow: 0 0 30px #ffffff, 0 0 40px #ffffff; }
+        }
+        
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 5;
+            padding: 40px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Static panels - no floating animation */
+        .panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 30px;
+            margin: 20px 0;
+            position: relative;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+        }
+        
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #ffffff, transparent, #ffffff);
+            z-index: -1;
+            opacity: 0;
+            animation: borderGlow 3s infinite;
+        }
+        
+        @keyframes borderGlow {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.8; }
+        }
+        
+        /* Grid layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        /* Status display */
+        .status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+        }
+        
+        .status-item {
+            text-align: center;
+        }
+        
+        .status-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #cccccc;
+            text-shadow: 0 0 10px #cccccc;
+        }
+        
+        .status-label {
+            font-size: 0.9rem;
+            color: #ffffff;
+            margin-top: 5px;
+        }
+        
+        /* Progress bars */
+        .progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ffffff, #cccccc);
+            border-radius: 4px;
+            animation: progressLoad 3s ease-out;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+        
+        @keyframes progressLoad {
+            0% { width: 0%; }
+        }
+        
+        .progress-bar.energy { width: 95%; }
+        .progress-bar.shield { width: 78%; }
+        .progress-bar.weapons { width: 100%; }
+        .progress-bar.sensors { width: 89%; }
+        
+        /* Static mechanical parts - no floating animation */
+        .mechanical-part {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+        }
+        
+        .mechanical-part::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            background: #ffffff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px #ffffff;
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .part-1 { top: 10%; right: 10%; animation-duration: 8s; }
+        .part-2 { top: 60%; left: 5%; animation-duration: 12s; animation-direction: reverse; }
+        .part-3 { bottom: 20%; right: 20%; animation-duration: 15s; }
+        
+        /* HUD elements */
+        .hud-corner {
+            position: fixed;
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            z-index: 20;
+        }
+        
+        .hud-corner.top-left {
+            top: 20px;
+            left: 20px;
+            border-right: none;
+            border-bottom: none;
+        }
+        
+        .hud-corner.top-right {
+            top: 20px;
+            right: 20px;
+            border-left: none;
+            border-bottom: none;
+        }
+        
+        .hud-corner.bottom-left {
+            bottom: 20px;
+            left: 20px;
+            border-right: none;
+            border-top: none;
+        }
+        
+        .hud-corner.bottom-right {
+            bottom: 20px;
+            right: 20px;
+            border-left: none;
+            border-top: none;
+        }
+        
+        /* Buttons */
+        .btn {
+            background: linear-gradient(45deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+            border: 1px solid #ffffff;
+            color: #ffffff;
+            padding: 12px 24px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo { font-size: 1.8rem; }
+            .grid { grid-template-columns: 1fr; }
+            .status { flex-direction: column; gap: 20px; }
+            .hud-corner { width: 60px; height: 60px; }
+        }
+        
+        /* Terminal effect */
+        .terminal {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #ffffff;
+            border-radius: 5px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .terminal-line {
+            margin: 5px 0;
+            opacity: 0;
+            animation: typewriter 0.5s ease-out forwards;
+        }
+        
+        .terminal-line:nth-child(1) { animation-delay: 0.5s; }
+        .terminal-line:nth-child(2) { animation-delay: 1s; }
+        .terminal-line:nth-child(3) { animation-delay: 1.5s; }
+        .terminal-line:nth-child(4) { animation-delay: 2s; }
+        
+        @keyframes typewriter {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background: #ffffff;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Central HUD Display */
+        .central-hud {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 40px auto;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+        }
+
+        .central-hud::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #ffffff 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            animation: corePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes corePulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+        }
+
+        .hud-ring {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            animation: rotate 20s linear infinite;
+        }
+
+        .hud-marker {
+            position: absolute;
+            width: 4px;
+            height: 20px;
+            background: #ffffff;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 0 10px #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <!-- Particles background -->
+    <div class="particles" id="particles"></div>
+    
+    <!-- HUD corners -->
+    <div class="hud-corner top-left"></div>
+    <div class="hud-corner top-right"></div>
+    <div class="hud-corner bottom-left"></div>
+    <div class="hud-corner bottom-right"></div>
+    
+    <!-- Static mechanical parts -->
+    <div class="mechanical-part part-1"></div>
+    <div class="mechanical-part part-2"></div>
+    <div class="mechanical-part part-3"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <h1 class="logo">J.A.R.V.I.S</h1>
+        <p>Just A Rather Very Intelligent System</p>
+    </header>
+    
+    <!-- Main content -->
+    <div class="container">
+        <!-- Central HUD Display -->
+        <div class="central-hud">
+            <div class="hud-ring">
+                <div class="hud-marker"></div>
+            </div>
+        </div>
+
+        <!-- Status panel -->
+        <div class="panel">
+            <h2>SYSTEM STATUS</h2>
+            <div class="status">
+                <div class="status-item">
+                    <div class="status-value">98%</div>
+                    <div class="status-label">ENERGY</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">ONLINE</div>
+                    <div class="status-label">STATUS</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">12.7V</div>
+                    <div class="status-label">POWER</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">37°C</div>
+                    <div class="status-label">TEMP</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Grid content -->
+        <div class="grid">
+            <!-- Power systems -->
+            <div class="panel">
+                <h3>POWER SYSTEMS</h3>
+                <div style="margin: 20px 0;">
+                    <div>Arc Reactor Output</div>
+                    <div class="progress">
+                        <div class="progress-bar energy"></div>
+                    </div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <div>Shield Systems</div>
+                    <div class="progress">
+                        <div class="progress-bar shield"></div>
+                    </div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <div>Weapon Systems</div>
+                    <div class="progress">
+                        <div class="progress-bar weapons"></div>
+                    </div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <div>Sensor Array</div>
+                    <div class="progress">
+                        <div class="progress-bar sensors"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Terminal -->
+            <div class="panel">
+                <h3>SYSTEM LOG</h3>
+                <div class="terminal">
+                    <div class="terminal-line">>>> Initializing JARVIS protocol...</div>
+                    <div class="terminal-line">>>> Arc reactor: STABLE</div>
+                    <div class="terminal-line">>>> Suit diagnostics: COMPLETE</div>
+                    <div class="terminal-line">>>> All systems: OPERATIONAL</div>
+                    <div class="terminal-line">>>> <span class="cursor"></span></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="panel">
+            <h3>MISSION CONTROL</h3>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px;">
+                <button class="btn" onclick="activateSystem('repulsors')">REPULSORS</button>
+                <button class="btn" onclick="activateSystem('flight')">FLIGHT MODE</button>
+                <button class="btn" onclick="activateSystem('scan')">AREA SCAN</button>
+                <button class="btn" onclick="activateSystem('defense')">DEFENSE</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 3 + 4) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+        
+        // System activation
+        function activateSystem(system) {
+            const messages = {
+                repulsors: 'Repulsors charging... Ready to fire.',
+                flight: 'Flight systems online. Thrusters engaged.',
+                scan: 'Scanning area... Threat assessment complete.',
+                defense: 'Defense protocols activated. Shield at maximum.'
+            };
+            
+            // Add to terminal
+            const terminal = document.querySelector('.terminal');
+            const newLine = document.createElement('div');
+            newLine.className = 'terminal-line';
+            newLine.textContent = `>>> ${messages[system]}`;
+            newLine.style.animationDelay = '0s';
+            
+            // Remove cursor and add new line
+            const cursor = document.querySelector('.cursor');
+            if (cursor) cursor.parentElement.removeChild(cursor);
+            
+            terminal.appendChild(newLine);
+            
+            // Add new cursor
+            const newCursor = document.createElement('div');
+            newCursor.className = 'terminal-line';
+            newCursor.innerHTML = '>>> <span class="cursor"></span>';
+            newCursor.style.animationDelay = '0.5s';
+            terminal.appendChild(newCursor);
+            
+            // Scroll to bottom
+            terminal.scrollTop = terminal.scrollHeight;
+            
+            // Keep only last 6 lines
+            const lines = terminal.querySelectorAll('.terminal-line');
+            if (lines.length > 6) {
+                terminal.removeChild(lines[0]);
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+        });
+        
+        // Add some dynamic effects
+        setInterval(() => {
+            const values = document.querySelectorAll('.status-value');
+            values.forEach(value => {
+                if (value.textContent.includes('%')) {
+                    const current = parseInt(value.textContent);
+                    const change = Math.floor(Math.random() * 3) - 1;
+                    const newValue = Math.max(90, Math.min(100, current + change));
+                    value.textContent = newValue + '%';
+                }
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

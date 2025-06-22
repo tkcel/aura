@@ -2,17 +2,21 @@ import React, { useEffect } from 'react';
 
 
 // Import reactor SVG icons for all AppStates
-import IdleReactor from '../assets/reactors/idle.svg';
-import RecordingReactor from '../assets/reactors/recording.svg';
-import ProcessingSttReactor from '../assets/reactors/processing_stt.svg';
-import ProcessingLlmReactor from '../assets/reactors/processing_llm.svg';
 import CompletedReactor from '../assets/reactors/completed.svg';
 import ErrorReactor from '../assets/reactors/error.svg';
+import IdleReactor from '../assets/reactors/idle.svg';
+import ProcessingLlmReactor from '../assets/reactors/processing_llm.svg';
+import ProcessingSttReactor from '../assets/reactors/processing_stt.svg';
+import RecordingReactor from '../assets/reactors/recording.svg';
 import { useApp } from '../context/AppContext';
 import { AppState } from '../types';
 
 export default function SimpleFloatingButton() {
   const { currentState, isRecording, startRecording, stopRecording, settings, selectAgent, selectedAgent } = useApp();
+
+  // Get selected agent color
+  const selectedAgentColor = selectedAgent && settings ? 
+    settings.agents.find(a => a.id === selectedAgent)?.color : null;
 
   // Listen for agent selection from native menu
   useEffect(() => {
@@ -80,8 +84,14 @@ export default function SimpleFloatingButton() {
         role="button"
         tabIndex={0}
       >
-        <div className="flex items-center justify-center">
+        <div className="relative flex items-center justify-center">
           {getMainButtonIcon()}
+          {selectedAgentColor && (
+            <div 
+              className="absolute top-1 right-1 w-2 h-2 rounded-full border border-white"
+              style={{ backgroundColor: selectedAgentColor }}
+            />
+          )}
         </div>
       </button>
     </div>

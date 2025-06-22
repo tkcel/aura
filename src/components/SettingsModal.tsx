@@ -4,9 +4,10 @@ import { useApp } from '../context/AppContext';
 
 interface SettingsModalProps {
   onClose: () => void;
+  embedded?: boolean;
 }
 
-export default function SettingsModal({ onClose }: SettingsModalProps) {
+export default function SettingsModal({ onClose, embedded = false }: SettingsModalProps) {
   const { settings, updateSettings, testApiConnection } = useApp();
   
   const [formData, setFormData] = useState({
@@ -38,14 +39,18 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
   // Show loading state while settings are being loaded
   if (!settings) {
-    return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-8 shadow-2xl">
-          <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-            <span className="text-gray-700">設定を読み込み中...</span>
-          </div>
+    const loadingContent = (
+      <div className="bg-white rounded-xl p-8 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+          <span className="text-gray-700">設定を読み込み中...</span>
         </div>
+      </div>
+    );
+    
+    return embedded ? loadingContent : (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        {loadingContent}
       </div>
     );
   }
@@ -94,9 +99,8 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+  const content = (
+    <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -271,6 +275,15 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           </button>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+      {content}
     </div>
   );
 }

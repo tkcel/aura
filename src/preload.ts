@@ -72,6 +72,19 @@ const api = {
     ipcRenderer.send("set-ignore-mouse-events", ignore);
   },
 
+  // Cursor state and auto-paste
+  checkCursorState: (): Promise<boolean> =>
+    ipcRenderer.invoke("check-cursor-state"),
+
+  pasteText: (text: string): Promise<boolean> =>
+    ipcRenderer.invoke("paste-text", text),
+
+  showResultWindow: (): Promise<void> =>
+    ipcRenderer.invoke("show-result-window"),
+
+  closeResultWindow: (): Promise<void> =>
+    ipcRenderer.invoke("close-result-window"),
+
   // Event listeners
   onStateChanged: (callback: (state: AppState) => void) => {
     ipcRenderer.on("state-changed", (_, state) => callback(state));
