@@ -66,7 +66,6 @@ export class RecordingService {
   }
 
   private handleError(error: Error): void {
-    console.error("Recording error:", error);
     this.setState(RecordingState.ERROR);
     this.cleanup();
     this.eventHandlers.onError?.(error);
@@ -186,7 +185,6 @@ export class RecordingService {
       if (this.transcriptionSettings) {
         await this.performTranscription();
       } else {
-        console.warn("⚠️ No transcription settings configured, skipping transcription");
         this.setState(RecordingState.IDLE);
       }
     } catch (error) {
@@ -306,12 +304,7 @@ export class RecordingService {
   ): Promise<STTResult> {
     try {
       if (!apiKey || !apiKey.startsWith("sk-")) {
-        // Mock implementation for testing
-        return {
-          text: "これはテスト用の音声認識結果です。実際のAPIキーを設定すると、OpenAI Whisperが使用されます。",
-          language: language,
-          confidence: 0.95,
-        };
+        throw new Error("有効なOpenAI APIキーが設定されていません。");
       }
 
 
@@ -342,7 +335,6 @@ export class RecordingService {
 
       return result;
     } catch (error) {
-      console.error("Transcription failed:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new Error(`Transcription failed: ${errorMessage}`);
@@ -363,7 +355,6 @@ export class RecordingService {
       }
     }
 
-    console.warn("No preferred MIME type supported, using default");
     return "audio/webm";
   }
 

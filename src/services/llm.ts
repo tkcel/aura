@@ -52,7 +52,6 @@ export class LLMService {
         tokensUsed: completion.usage?.total_tokens || 0,
       };
     } catch (error) {
-      console.error("LLM processing failed:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new Error(`LLM processing failed: ${errorMessage}`);
@@ -109,7 +108,6 @@ export class LLMService {
         tokensUsed: completion.usage?.total_tokens || 0,
       };
     } catch (error) {
-      console.error("LLM processing with image failed:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new Error(`LLM processing with image failed: ${errorMessage}`);
@@ -130,7 +128,6 @@ export class LLMService {
 
       return completion.choices.length > 0;
     } catch (error) {
-      console.error("OpenAI connection test failed:", error);
       return false;
     }
   }

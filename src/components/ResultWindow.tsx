@@ -9,8 +9,6 @@ export default function ResultWindow() {
   const { llmResult, sttResult, copyToClipboard, currentState, settings, selectedAgent } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('stt');
 
-  // Debug: Log the STT result when component renders
-  console.log('🎯 ResultWindow render, sttResult:', sttResult, 'llmResult:', llmResult, 'currentState:', currentState);
 
   // Check processing states
   const isProcessingSTT = currentState === AppState.PROCESSING_STT;
@@ -28,37 +26,6 @@ export default function ResultWindow() {
   // Current timestamp for display
   const currentTime = new Date().toLocaleString('ja-JP');
 
-  // Add debug listeners for IPC events
-  React.useEffect(() => {
-    console.log('🎯 ResultWindow setting up IPC listeners');
-    console.log('🎯 ResultWindow electronAPI available:', !!window.electronAPI);
-    console.log('🎯 ResultWindow onSttResult available:', !!window.electronAPI?.onSttResult);
-    
-    // Check if we're in the result window mode
-    const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');
-    console.log('🎯 ResultWindow mode:', mode);
-    
-    // Listen for STT results directly in ResultWindow
-    const handleSttResult = (result: any) => {
-      console.log('🎯 ResultWindow received STT result via IPC:', result);
-    };
-    
-    const handleLlmResult = (result: any) => {
-      console.log('🎯 ResultWindow received LLM result via IPC:', result);
-    };
-    
-    if (window.electronAPI?.onSttResult) {
-      window.electronAPI.onSttResult(handleSttResult);
-    }
-    if (window.electronAPI?.onLlmResult) {
-      window.electronAPI.onLlmResult(handleLlmResult);
-    }
-    
-    return () => {
-      console.log('🎯 ResultWindow cleaning up IPC listeners');
-    };
-  }, []);
 
   // Auto-switch tabs based on processing state
   React.useEffect(() => {

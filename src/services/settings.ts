@@ -44,7 +44,6 @@ export class SettingsService {
         return { ...this.getDefaultSettings(), ...rawSettings };
       }
     } catch (error) {
-      console.error('Failed to load settings:', error);
     }
     return this.getDefaultSettings();
   }
@@ -62,7 +61,6 @@ export class SettingsService {
     try {
       fs.writeJsonSync(this.settingsPath, this.settings, { spaces: 2 });
     } catch (error) {
-      console.error('Failed to save settings:', error);
       throw error;
     }
   }

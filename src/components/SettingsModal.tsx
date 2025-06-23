@@ -62,7 +62,6 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
     // 埋め込みモードでは自動保存
     if (embedded) {
       updateSettings({ [field]: value }).catch(error => {
-        console.error('Failed to auto-save setting:', error);
       });
     }
   };
@@ -72,7 +71,6 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
       await updateSettings(formData);
       onClose();
     } catch (error) {
-      console.error('Failed to save settings:', error);
     }
   };
 

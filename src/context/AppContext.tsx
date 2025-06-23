@@ -50,18 +50,7 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
         return { ...state, settings: action.payload };
       case 'SET_STATE':
         if (state.currentState === action.payload) {
-          console.log('🔄 SET_STATE: Skipping duplicate state change:', action.payload);
           return state;
-        }
-        console.log('🔍 AppContext SET_STATE:', state.currentState, '->', action.payload);
-        
-        // 不正な状態遷移を検出
-        if ((state.currentState === AppState.RECORDING || 
-             state.currentState === AppState.PROCESSING_STT || 
-             state.currentState === AppState.PROCESSING_LLM) && 
-            action.payload === AppState.IDLE) {
-          console.log('🚨 SUSPICIOUS TRANSITION:', state.currentState, '-> IDLE');
-          console.trace('State change stack trace:');
         }
         
         return { ...state, currentState: action.payload };
@@ -85,13 +74,6 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
         return { ...state, pendingTranscription: action.payload };
       // Actions from main process - no sync back to main needed
       case 'SET_STATE_FROM_MAIN':
-        console.log('📡 SET_STATE_FROM_MAIN:', state.currentState, '->', action.payload);
-        if ((state.currentState === AppState.RECORDING || 
-             state.currentState === AppState.PROCESSING_STT || 
-             state.currentState === AppState.PROCESSING_LLM) && 
-            action.payload === AppState.IDLE) {
-          console.log('🚨 SUSPICIOUS MAIN TRANSITION:', state.currentState, '-> IDLE');
-        }
         return { ...state, currentState: action.payload };
       case 'SELECT_AGENT_FROM_MAIN':
         return { ...state, selectedAgent: action.payload };
@@ -102,25 +84,6 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
     }
   })();
 
-  // TEMPORARILY DISABLE ALL MAIN PROCESS SYNC
-  // if ((action.type === 'SET_STATE' || action.type === 'SET_RECORDING' || action.type === 'SELECT_AGENT') && 
-  //     action.syncWithMain !== false) {
-  //   // Use setTimeout to avoid blocking the state update
-  //   setTimeout(() => {
-  //     try {
-  //       if (action.type === 'SET_STATE') {
-  //         console.log('🔄 Syncing state with main process:', action.payload);
-  //         // window.electronAPI.setState?.(action.payload);
-  //       } else if (action.type === 'SET_RECORDING') {
-  //         window.electronAPI.setRecordingState?.(action.payload);
-  //       } else if (action.type === 'SELECT_AGENT') {
-  //         window.electronAPI.setSelectedAgent?.(action.payload);
-  //       }
-  //     } catch (error) {
-  //       console.warn('Failed to sync state with main process:', error);
-  //     }
-  //   }, 0);
-  // }
 
   return newState;
 }
@@ -184,14 +147,12 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SELECT_AGENT', payload: appState.selectedAgent });
       }
     } catch (error) {
-      console.error('Failed to load initial state:', error);
     }
   };
 
   const setupRecordingService = () => {
     recordingService.setEventHandlers({
       onStateChange: (recordingState: RecordingState) => {
-        console.log('🔍 RecordingService state changed to:', recordingState, 'Current AppState:', stateRef.current.currentState);
         
         // RecordingService状態変更はisRecordingフラグのみ更新
         // AppStateは独立して管理
@@ -206,14 +167,12 @@ export function AppProvider({ children }: AppProviderProps) {
           case RecordingState.PROCESSING:
             dispatch({ type: 'SET_RECORDING', payload: false });
             // RECORDING状態からRECORDING状態以外でもPROCESSING_STTに遷移
-            console.log('🎤 RecordingState.PROCESSING - Force transition to PROCESSING_STT');
             dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_STT });
             break;
           case RecordingState.IDLE:
             dispatch({ type: 'SET_RECORDING', payload: false });
             // RecordingService.IDLEはisRecordingフラグのみ更新
             // AppStateはそのまま維持
-            console.log('🎤 RecordingState.IDLE - Maintaining current state:', stateRef.current.currentState);
             break;
           case RecordingState.ERROR:
             dispatch({ type: 'SET_RECORDING', payload: false });
@@ -228,17 +187,14 @@ export function AppProvider({ children }: AppProviderProps) {
         }
       },
       onError: (error: Error) => {
-        console.error('Recording service error:', error);
         dispatch({ type: 'SET_ERROR', payload: error.message });
         dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
         dispatch({ type: 'SET_RECORDING', payload: false });
       },
       onTranscriptionComplete: (result: STTResult, audioFilePath?: string) => {
-        console.log('🎯 Recording service STT completed:', result);
         dispatch({ type: 'SET_STT_RESULT', payload: result });
         
         // Notify main process about STT completion
-        console.log('🎯 Notifying main process about STT completion');
         window.electronAPI.notifyTranscriptionComplete?.(result);
         
         // Result window already shown when recording stopped
@@ -269,7 +225,6 @@ export function AppProvider({ children }: AppProviderProps) {
       // Update recording service settings after loading
       setTimeout(() => updateRecordingServiceSettings(), 100);
     } catch (error) {
-      console.error('Failed to load settings:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load settings' });
     }
   };
@@ -286,7 +241,6 @@ export function AppProvider({ children }: AppProviderProps) {
         setTimeout(() => updateRecordingServiceSettings(), 100);
       }
     } catch (error) {
-      console.error('Failed to update settings:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update settings' });
     }
   };
@@ -299,7 +253,6 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       await recordingService.startRecording();
     } catch (error) {
-      console.error('Start recording failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: `Recording failed: ${errorMessage}` });
     }
@@ -314,40 +267,33 @@ export function AppProvider({ children }: AppProviderProps) {
       await recordingService.stopRecording();
       
       // Show result window immediately when recording stops
-      console.log('🎯 Recording stopped, showing result window');
       window.electronAPI.showResultWindow?.();
     } catch (error) {
-      console.error('Stop recording failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: `Stop recording failed: ${errorMessage}` });
     }
   };
 
   const processTranscriptionResult = async (sttResult: STTResult, audioFilePath?: string) => {
-    console.log('🎯 processTranscriptionResult called, current state:', stateRef.current.currentState);
     
     // STT result is already set by setupRecordingService, no need to set again
     
     // 設定チェック
     const currentState = stateRef.current;
     if (!currentState.settings || !currentState.selectedAgent) {
-      console.log('🎯 Missing settings or agent, transitioning to IDLE');
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
     
     const selectedAgentConfig = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
     if (!selectedAgentConfig) {
-      console.log('🎯 Agent not found, transitioning to IDLE');
       dispatch({ type: 'SET_ERROR', payload: 'Selected agent not found' });
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
 
     // Check if AI processing is enabled for this agent
-    console.log('🎯 Agent autoProcessAi:', selectedAgentConfig.autoProcessAi);
     if (!selectedAgentConfig.autoProcessAi) {
-      console.log('🎯 AI processing disabled, showing result window and transitioning to IDLE');
       dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: sttResult.text });
       
       // Result window already shown after STT completion
@@ -367,7 +313,6 @@ export function AppProvider({ children }: AppProviderProps) {
       try {
         await addHistoryEntry(historyEntry);
       } catch (error) {
-        console.error('Failed to add history entry:', error);
       }
       
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
@@ -377,7 +322,6 @@ export function AppProvider({ children }: AppProviderProps) {
     // Result window already shown after STT completion
     
     // LLM処理開始
-    console.log('🎯 Starting LLM processing...');
     dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
     
     try {
@@ -410,11 +354,9 @@ export function AppProvider({ children }: AppProviderProps) {
             llmResult: llmTyped,
             timestamp: new Date()
           };
-          console.log('🎯 LLM processing completed successfully');
           dispatch({ type: 'SET_LLM_RESULT', payload: result });
           
           // Notify main process about LLM result
-          console.log('🎯 Notifying main process about LLM result:', result);
           window.electronAPI.notifyLlmResult?.(result);
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
 
@@ -447,14 +389,11 @@ export function AppProvider({ children }: AppProviderProps) {
         }
 
         // 処理完了後、明示的にIDLEに遷移
-        console.log('🎯 Processing complete, transitioning to IDLE in 3 seconds');
         setTimeout(() => {
           const currentState = stateRef.current.currentState;
           if (currentState === AppState.COMPLETED) {
-            console.log('🎯 Transitioning to IDLE after completion');
             dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
           } else {
-            console.log('🎯 Skipping IDLE transition, current state:', currentState);
           }
         }, 3000);
 
@@ -463,7 +402,6 @@ export function AppProvider({ children }: AppProviderProps) {
       }
 
     } catch (error) {
-      console.log('🎯 LLM processing failed, transitioning to ERROR then IDLE');
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
@@ -472,11 +410,9 @@ export function AppProvider({ children }: AppProviderProps) {
       setTimeout(() => {
         const currentState = stateRef.current.currentState;
         if (currentState === AppState.ERROR) {
-          console.log('🎯 Error cleared, transitioning to IDLE');
           dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
           dispatch({ type: 'SET_ERROR', payload: null });
         } else {
-          console.log('🎯 Skipping error clear, current state:', currentState);
         }
       }, 3000);
     }
@@ -490,7 +426,6 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       window.electronAPI.setSelectedAgent?.(agentId);
     } catch (error) {
-      console.warn('Failed to sync selected agent with main process:', error);
     }
   };
 
@@ -498,7 +433,6 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       await window.electronAPI.copyToClipboard(text);
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
     }
   };
 
@@ -507,7 +441,6 @@ export function AppProvider({ children }: AppProviderProps) {
       const result = await window.electronAPI.testApiConnection();
       return result.success && result.connected || false;
     } catch (error) {
-      console.error('API connection test failed:', error);
       return false;
     }
   };
@@ -521,7 +454,6 @@ export function AppProvider({ children }: AppProviderProps) {
       const history = await window.electronAPI.getHistory();
       dispatch({ type: 'SET_HISTORY', payload: history });
     } catch (error) {
-      console.error('Failed to load history:', error);
     }
   };
 
@@ -533,7 +465,6 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SET_HISTORY', payload: updatedHistory });
       }
     } catch (error) {
-      console.error('Failed to delete history entry:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: `Failed to delete history entry: ${errorMessage}` });
     }
@@ -544,7 +475,6 @@ export function AppProvider({ children }: AppProviderProps) {
       await window.electronAPI.clearHistory();
       dispatch({ type: 'SET_HISTORY', payload: [] });
     } catch (error) {
-      console.error('Failed to clear history:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: `Failed to clear history: ${errorMessage}` });
     }
@@ -555,7 +485,6 @@ export function AppProvider({ children }: AppProviderProps) {
       // Use Electron's shell to open the audio file with default audio player
       await window.electronAPI.openExternal(filePath);
     } catch (error) {
-      console.error('Failed to play audio file:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: `Failed to play audio file: ${errorMessage}` });
     }
@@ -640,19 +569,16 @@ export function AppProvider({ children }: AppProviderProps) {
   const setupElectronListeners = () => {
     // State changes
     window.electronAPI.onStateChanged?.((newState: AppState) => {
-      console.log('📡 Received state change from main process:', newState);
       dispatch({ type: 'SET_STATE', payload: newState });
     });
 
     // STT results
     window.electronAPI.onSttResult?.((result: STTResult) => {
-      console.log('🎯 AppContext: Received STT result from IPC:', result);
       dispatch({ type: 'SET_STT_RESULT', payload: result });
     });
 
     // LLM results
     window.electronAPI.onLlmResult?.((result: ProcessingResult) => {
-      console.log('🎯 AppContext: Received LLM result from IPC:', result);
       dispatch({ type: 'SET_LLM_RESULT', payload: result });
     });
 
@@ -669,13 +595,11 @@ export function AppProvider({ children }: AppProviderProps) {
 
     // Agent selection from main process (bar window context menu)
     window.electronAPI.onSelectAgent?.((agentId: string) => {
-      console.log('📡 Received agent selection from main process:', agentId);
       dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
     });
 
     // App state updates from main process
     window.electronAPI.onAppStateUpdated?.((appState) => {
-      console.log('📡 Received app state update from main:', appState);
       dispatch({ type: 'SET_STATE_FROM_MAIN', payload: appState.currentState });
       dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: appState.isRecording });
       if (appState.selectedAgent !== null) {
@@ -690,7 +614,6 @@ export function AppProvider({ children }: AppProviderProps) {
 
     // Selected agent changes from main process
     window.electronAPI.onSelectedAgentChanged?.((agentId) => {
-      console.log('📡 Received selected agent change from main:', agentId);
       if (agentId) {
         dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
       }
@@ -698,7 +621,6 @@ export function AppProvider({ children }: AppProviderProps) {
 
     // Recording state changes from main process
     window.electronAPI.onRecordingStateChanged?.((isRecording) => {
-      console.log('📡 Received recording state change from main:', isRecording);
       dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: isRecording });
     });
   };

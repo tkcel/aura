@@ -183,7 +183,6 @@ class AuraApp {
 
         return { filePath };
       } catch (error) {
-        console.error("Failed to save audio file:", error);
         throw error;
       }
     });
@@ -221,7 +220,6 @@ class AuraApp {
         try {
           await fs.unlink(entry.audioFilePath);
         } catch (error) {
-          console.warn("Failed to delete audio file:", error);
         }
       }
 
@@ -239,8 +237,7 @@ class AuraApp {
           try {
             await fs.unlink(entry.audioFilePath);
           } catch (error) {
-            console.warn("Failed to delete audio file:", error);
-          }
+            }
         }
       }
 
@@ -379,10 +376,8 @@ class AuraApp {
 
     // Handle LLM result from renderer
     ipcMain.on("notify-llm-result", (_, result: ProcessingResult) => {
-      console.log('🎯 Main: Received LLM result:', result);
       this.currentLlmResult = result;
       this.sendToRenderer("llm-result", result);
-      console.log('🎯 Main: Sent LLM result to all windows');
     });
 
   }
@@ -461,7 +456,6 @@ class AuraApp {
         }, 5000);
         break;
       default:
-        console.warn('Unknown recording state:', recordingState);
     }
   }
 
@@ -470,11 +464,8 @@ class AuraApp {
    * @param result - The transcription result
    */
   private handleTranscriptionComplete(result: STTResult): void {
-    console.log('🎯 Main: Received STT result:', result);
-    
     // Store current STT result
     this.currentSttResult = result;
-    console.log('🎯 Main: Stored STT result, currentSttResult:', this.currentSttResult);
     
     // Send transcription result to all windows
     this.sendToRenderer("stt-result", result);
@@ -519,7 +510,6 @@ class AuraApp {
         );
       }
     } catch (error) {
-      console.error("Failed to load history:", error);
       this.history = [];
     }
   }
@@ -531,7 +521,6 @@ class AuraApp {
     try {
       fs.writeJsonSync(this.historyPath, this.history, { spaces: 2 });
     } catch (error) {
-      console.error("Failed to save history:", error);
       throw error;
     }
   }
@@ -616,10 +605,6 @@ class AuraApp {
     this.barWindow.once("ready-to-show", () => {
       this.barWindow?.show();
 
-      // Open DevTools in development mode
-      if (process.env.NODE_ENV === "development" && this.barWindow) {
-        this.barWindow.webContents.openDevTools({ mode: 'detach' });
-      }
 
       // Force window to front on macOS
       if (process.platform === "darwin" && this.barWindow) {
@@ -644,10 +629,6 @@ class AuraApp {
       this.barWindow = null;
     });
 
-    // DevTools can be opened manually if needed
-    // if (process.env.NODE_ENV === 'development') {
-    //   this.barWindow.webContents.openDevTools();
-    // }
   }
 
   /**
@@ -692,10 +673,6 @@ class AuraApp {
       this.settingsWindow?.show();
       this.settingsWindow?.focus();
 
-      // Open DevTools in development mode
-      if (process.env.NODE_ENV === "development" && this.settingsWindow) {
-        this.settingsWindow.webContents.openDevTools({ mode: 'detach' });
-      }
     });
 
     // Handle window closed
@@ -740,7 +717,6 @@ class AuraApp {
 
     // Fallback to a simple built-in icon if file not found
     if (!trayIcon || trayIcon.isEmpty()) {
-      console.warn("Tray icon file not found, using fallback");
       trayIcon = nativeImage.createEmpty();
     }
 
@@ -845,7 +821,6 @@ class AuraApp {
 
           // Window level check removed - no longer always on top
         } catch (error) {
-          console.warn("Failed to maintain window visibility:", error);
         }
       }
     }, 2000);
@@ -931,7 +906,6 @@ class AuraApp {
           const isInputFocused = result === 'true';
           return isInputFocused;
         } catch (error) {
-          console.warn('Failed to check cursor state via AppleScript:', error);
           return false;
         }
       } else if (process.platform === 'win32') {
@@ -943,7 +917,6 @@ class AuraApp {
         return false;
       }
     } catch (error) {
-      console.warn('Failed to check cursor state:', error);
       return false;
     }
   }
@@ -966,7 +939,6 @@ class AuraApp {
       
       return true;
     } catch (error) {
-      console.error('Failed to paste text:', error);
       return false;
     }
   }
@@ -1017,20 +989,13 @@ class AuraApp {
         this.resultWindow.focus();
 
         // Send current STT and LLM results to the result window
-        console.log('🎯 Main: Sending results to result window, STT:', this.currentSttResult, 'LLM:', this.currentLlmResult);
         if (this.currentSttResult) {
-          console.log('🎯 Main: Sending STT result to result window');
           this.resultWindow.webContents.send('stt-result', this.currentSttResult);
         }
         if (this.currentLlmResult) {
-          console.log('🎯 Main: Sending LLM result to result window');
           this.resultWindow.webContents.send('llm-result', this.currentLlmResult);
         }
 
-        // Open DevTools in development mode
-        if (process.env.NODE_ENV === "development") {
-          this.resultWindow.webContents.openDevTools({ mode: 'detach' });
-        }
       }
     });
 
