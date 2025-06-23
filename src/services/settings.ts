@@ -44,6 +44,7 @@ export class SettingsService {
         return { ...this.getDefaultSettings(), ...rawSettings };
       }
     } catch (error) {
+      console.error('Failed to load settings:', error);
     }
     return this.getDefaultSettings();
   }
@@ -58,11 +59,7 @@ export class SettingsService {
   }
 
   public saveSettings(): void {
-    try {
-      fs.writeJsonSync(this.settingsPath, this.settings, { spaces: 2 });
-    } catch (error) {
-      throw error;
-    }
+    fs.writeJsonSync(this.settingsPath, this.settings, { spaces: 2 });
   }
 
   public getApiKey(): string {

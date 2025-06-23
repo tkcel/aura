@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 
 // Import reactor SVG icons for all AppStates
 import CompletedReactor from '../assets/reactors/completed.svg';
@@ -7,54 +7,21 @@ import IdleReactor from '../assets/reactors/idle.svg';
 import ProcessingLlmReactor from '../assets/reactors/processing_llm.svg';
 import ProcessingSttReactor from '../assets/reactors/processing_stt.svg';
 import RecordingReactor from '../assets/reactors/recording.svg';
-import { useApp } from '../context/AppContext';
+import { useFloatingButton } from '../hooks/useFloatingButton';
 import { AppState } from '../types';
 
 export default function SimpleFloatingButton() {
-  const { currentState, isRecording, startRecording, stopRecording, settings, selectAgent, selectedAgent } = useApp();
-
-  // Get selected agent color
-  const selectedAgentColor = selectedAgent && settings ? 
-    settings.agents.find(a => a.id === selectedAgent)?.color : null;
-
-  // Listen for agent selection from native menu
-  useEffect(() => {
-    const handleSelectAgent = (agentId: string) => {
-      selectAgent(agentId);
-    };
-
-    window.electronAPI.onSelectAgent?.(handleSelectAgent);
-
-    return () => {
-      window.electronAPI.removeAllListeners?.('select-agent');
-    };
-  }, [selectAgent]);
-
-  const handleMainButtonClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isRecording) {
-      stopRecording();
-    } else {
-      // Select first available agent if none selected
-      if (!selectedAgent && settings && Array.isArray(settings.agents) && settings.agents.length > 0) {
-        const firstEnabledAgent = settings.agents.find(agent => agent.enabled);
-        if (firstEnabledAgent) {
-          selectAgent(firstEnabledAgent.id);
-        }
-      }
-      startRecording();
-    }
-  };
-
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    window.electronAPI.showBarContextMenu?.();
-  };
+  const {
+    currentState,
+    isRecording,
+    selectedAgentColor,
+    handleMainButtonClick,
+    handleContextMenu,
+    getSpinClasses
+  } = useFloatingButton();
 
   const getMainButtonIcon = () => {
-    const spinClasses = (currentState === AppState.PROCESSING_STT || currentState === AppState.PROCESSING_LLM) 
-      ? "w-full h-full opacity-80 animate-spin" 
-      : "w-full h-full opacity-80";
+    const spinClasses = getSpinClasses(currentState);
       
     switch (currentState) {
       case AppState.IDLE:
@@ -104,7 +71,7 @@ export default function SimpleFloatingButton() {
           {/* Agent color indicator */}
           {selectedAgentColor && (
             <div 
-              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white/80 shadow-sm z-10"
+              className="absolute top-0 right-0 w-2 h-2 rounded-full border border-white/80 shadow-sm z-10"
               style={{ backgroundColor: selectedAgentColor }}
             />
           )}

@@ -7,7 +7,7 @@ import { t } from '../utils/i18n';
 import SettingsModal from './SettingsModal';
 
 export default function SettingsScreen() {
-  const { settings, selectedAgent, selectAgent, updateSettings, language, toggleLanguage } = useApp();
+  const { settings, selectedAgent, selectAgent, updateSettings } = useApp();
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);

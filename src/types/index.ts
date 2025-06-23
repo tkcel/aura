@@ -1,18 +1,23 @@
+// Model types
+export type LLMModel = 'gpt-4' | 'gpt-4-turbo' | 'gpt-3.5-turbo';
+export type Language = 'ja' | 'en' | 'auto';
+export type AgentColor = string; // Could be restricted to specific colors
+
 export interface Agent {
   id: string;
   name: string;
   hotkey: string;
   instruction: string;
-  model: string;
+  model: LLMModel;
   temperature: number;
   enabled: boolean;
   autoProcessAi: boolean;
-  color: string;
+  color: AgentColor;
 }
 
 export interface AppSettings {
   openaiApiKey: string;
-  language: 'ja' | 'en' | 'auto';
+  language: Language;
   agents: Agent[];
   autoStartup: boolean;
   systemTray: boolean;
@@ -29,7 +34,7 @@ export interface STTResult {
 
 export interface LLMResult {
   text: string;
-  model: string;
+  model: LLMModel;
   tokensUsed: number;
 }
 
@@ -52,7 +57,6 @@ export interface HistoryEntry {
   duration?: number;
 }
 
-
 export enum AppState {
   IDLE = 'idle',
   RECORDING = 'recording',
@@ -60,4 +64,39 @@ export enum AppState {
   PROCESSING_LLM = 'processing_llm',
   COMPLETED = 'completed',
   ERROR = 'error'
+}
+
+// API Response types
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  result?: T;
+  error?: string;
+}
+
+export interface AgentValidationResult {
+  isValid: boolean;
+  agent?: Agent;
+  error?: string;
+}
+
+// Utility types
+export type PartialAgent = Partial<Agent>;
+export type CreateHistoryEntry = Omit<HistoryEntry, 'id'>;
+
+// Type guards
+export function isValidAppState(value: string): value is AppState {
+  return Object.values(AppState).includes(value as AppState);
+}
+
+export function isLLMResult(obj: unknown): obj is LLMResult {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'text' in obj &&
+    'model' in obj &&
+    'tokensUsed' in obj &&
+    typeof (obj as LLMResult).text === 'string' &&
+    typeof (obj as LLMResult).model === 'string' &&
+    typeof (obj as LLMResult).tokensUsed === 'number'
+  );
 }

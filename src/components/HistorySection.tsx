@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
-import { HistoryEntry } from '../types';
-import { t } from '../utils/i18n';
 import { useApp } from '../context/AppContext';
+import { HistoryEntry } from '../types';
 
 interface HistorySectionProps {
   history: HistoryEntry[];

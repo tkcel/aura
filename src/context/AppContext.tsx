@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 
 import { RecordingService, RecordingState } from '../services/recording';
-import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult } from '../types';
-import { Language, initializeLanguage, setLanguage, getCurrentLanguage } from '../utils/i18n';
+import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult, isLLMResult, CreateHistoryEntry } from '../types';
+import { validateAgentSelection } from '../utils/agent-helpers';
+import { handleErrorSilently } from '../utils/error-handling';
+import { Language, initializeLanguage, setLanguage } from '../utils/i18n';
 
 interface AppContextState {
   settings: AppSettings | null;
@@ -159,6 +161,7 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SELECT_AGENT', payload: appState.selectedAgent });
       }
     } catch (error) {
+      handleErrorSilently(error, 'Failed to load initial state');
     }
   };
 
@@ -272,15 +275,10 @@ export function AppProvider({ children }: AppProviderProps) {
       return;
     }
 
-    // Check if selected agent exists and is enabled
-    const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
-    if (!agent) {
-      dispatch({ type: 'SET_ERROR', payload: `Selected agent not found: ${state.selectedAgent}` });
-      return;
-    }
-
-    if (!agent.enabled) {
-      dispatch({ type: 'SET_ERROR', payload: `Selected agent is disabled: ${agent.name}` });
+    // Validate selected agent
+    const validation = validateAgentSelection(state.selectedAgent, state.settings.agents);
+    if (!validation.isValid) {
+      dispatch({ type: 'SET_ERROR', payload: validation.error || 'Agent validation failed' });
       return;
     }
 
@@ -320,19 +318,14 @@ export function AppProvider({ children }: AppProviderProps) {
       return;
     }
     
-    const selectedAgentConfig = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
-    if (!selectedAgentConfig) {
-      dispatch({ type: 'SET_ERROR', payload: `Selected agent not found: ${currentState.selectedAgent}` });
+    // Validate selected agent
+    const validation = validateAgentSelection(currentState.selectedAgent, currentState.settings.agents);
+    if (!validation.isValid) {
+      dispatch({ type: 'SET_ERROR', payload: validation.error || 'Agent validation failed' });
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
-
-    // Check if agent is enabled
-    if (!selectedAgentConfig.enabled) {
-      dispatch({ type: 'SET_ERROR', payload: `Selected agent is disabled: ${selectedAgentConfig.name}` });
-      dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
-      return;
-    }
+    const selectedAgentConfig = validation.agent;
 
     // Check if AI processing is enabled for this agent
     if (!selectedAgentConfig.autoProcessAi) {
@@ -342,7 +335,7 @@ export function AppProvider({ children }: AppProviderProps) {
       
       // Add to history (STT only)
       const duration = recordingService.getRecordingDuration() ?? undefined;
-      const historyEntry: Omit<HistoryEntry, 'id'> = {
+      const historyEntry: CreateHistoryEntry = {
         agentId: currentState.selectedAgent,
         agentName: selectedAgentConfig.name,
         transcription: sttResult.text,
@@ -355,6 +348,7 @@ export function AppProvider({ children }: AppProviderProps) {
       try {
         await addHistoryEntry(historyEntry);
       } catch (error) {
+        handleErrorSilently(error, 'Failed to add history entry');
       }
       
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
@@ -402,9 +396,6 @@ export function AppProvider({ children }: AppProviderProps) {
           window.electronAPI.notifyLlmResult?.(result);
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
 
-          // Check if we should auto-paste or show result window
-          const shouldAutoPaste = await window.electronAPI.checkCursorState?.();
-          
           // Always show result window
           await window.electronAPI.showResultWindow?.();
 
@@ -414,7 +405,7 @@ export function AppProvider({ children }: AppProviderProps) {
           // Add to history
           const duration = recordingService.getRecordingDuration() ?? undefined;
           const agent = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
-          const historyEntry: Omit<HistoryEntry, 'id'> = {
+          const historyEntry: CreateHistoryEntry = {
             agentId: currentState.selectedAgent,
             agentName: agent?.name || 'Unknown Agent',
             transcription: sttResult.text,
@@ -436,6 +427,7 @@ export function AppProvider({ children }: AppProviderProps) {
           if (currentState === AppState.COMPLETED) {
             dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
           } else {
+            console.log('State is not COMPLETED, skipping transition to IDLE');
           }
         }, 3000);
 
@@ -455,6 +447,7 @@ export function AppProvider({ children }: AppProviderProps) {
           dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
           dispatch({ type: 'SET_ERROR', payload: null });
         } else {
+          console.log('State is not ERROR, skipping transition to IDLE');
         }
       }, 3000);
     }
@@ -468,6 +461,7 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       window.electronAPI.setSelectedAgent?.(agentId);
     } catch (error) {
+      handleErrorSilently(error, 'Failed to set selected agent');
     }
   };
 
@@ -475,6 +469,7 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       await window.electronAPI.copyToClipboard(text);
     } catch (error) {
+      handleErrorSilently(error, 'Failed to copy to clipboard');
     }
   };
 
@@ -496,6 +491,7 @@ export function AppProvider({ children }: AppProviderProps) {
       const history = await window.electronAPI.getHistory();
       dispatch({ type: 'SET_HISTORY', payload: history });
     } catch (error) {
+      handleErrorSilently(error, 'Failed to load history');
     }
   };
 
@@ -541,14 +537,14 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
 
-      const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
-      if (!agent) {
-        throw new Error(`Selected agent not found: ${state.selectedAgent}`);
+      // Validate selected agent
+      const validation = validateAgentSelection(state.selectedAgent, state.settings.agents);
+      if (!validation.isValid) {
+        throw new Error(validation.error || 'Agent validation failed');
       }
-
-      // Check if agent is enabled
-      if (!agent.enabled) {
-        throw new Error(`Selected agent is disabled: ${agent.name}`);
+      const agent = validation.agent;
+      if (!agent) {
+        throw new Error('Agent validation failed');
       }
 
       const llmResult = await window.electronAPI.processWithLLM({
@@ -558,12 +554,7 @@ export function AppProvider({ children }: AppProviderProps) {
 
       if (llmResult.success) {
         const resultObj = llmResult.result;
-        if (
-          typeof resultObj === 'object' && resultObj !== null &&
-          'text' in resultObj && typeof (resultObj as { text: unknown }).text === 'string' &&
-          'model' in resultObj && typeof (resultObj as { model: unknown }).model === 'string' &&
-          'tokensUsed' in resultObj && typeof (resultObj as { tokensUsed: unknown }).tokensUsed === 'number'
-        ) {
+        if (isLLMResult(resultObj)) {
           const result: ProcessingResult = {
             agentId: state.selectedAgent,
             sttResult: { text: transcription, language: 'ja', confidence: 0.95 },
@@ -574,9 +565,6 @@ export function AppProvider({ children }: AppProviderProps) {
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
           dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: null });
           
-          // Check if we should auto-paste or show result window
-          const shouldAutoPaste = await window.electronAPI.checkCursorState?.();
-          
           // Always show result window
           await window.electronAPI.showResultWindow?.();
 
@@ -584,7 +572,7 @@ export function AppProvider({ children }: AppProviderProps) {
 
           // Add to history
           const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
-          const historyEntry: Omit<HistoryEntry, 'id'> = {
+          const historyEntry: CreateHistoryEntry = {
             agentId: state.selectedAgent,
             agentName: agent?.name || 'Unknown Agent',
             transcription: transcription,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import { useApp } from '../context/AppContext';
 import { t } from '../utils/i18n';
 
@@ -62,7 +63,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
     
     // 埋め込みモードでは自動保存
     if (embedded) {
-      updateSettings({ [field]: value }).catch(error => {
+      updateSettings({ [field]: value }).catch(_error => {
         // Error handling removed for production
       });
     }

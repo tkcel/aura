@@ -21,6 +21,7 @@ import { APP_CONFIG, SHORTCUTS, WINDOW_CONFIG } from "./constants/app";
 import { LLMService } from "./services/llm";
 import { SettingsService } from "./services/settings";
 import { AppState, HistoryEntry, STTResult } from "./types";
+import { handleErrorSilently } from "./utils/error-handling";
 import { getErrorMessage } from "./utils/errors";
 import { generateId } from "./utils/helpers";
 
@@ -179,21 +180,17 @@ class AuraApp {
 
     // Audio file saving
     ipcMain.handle("save-audio-file", async (_, { data, mimeType }) => {
-      try {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const extension = mimeType.includes("webm") ? "webm" : "wav";
-        const filename = `recording-${timestamp}.${extension}`;
-        const filePath = path.join(this.audioDirectory, filename);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const extension = mimeType.includes("webm") ? "webm" : "wav";
+      const filename = `recording-${timestamp}.${extension}`;
+      const filePath = path.join(this.audioDirectory, filename);
 
-        // Convert number array back to buffer
-        const buffer = Buffer.from(data);
+      // Convert number array back to buffer
+      const buffer = Buffer.from(data);
 
-        await fs.writeFile(filePath, buffer);
+      await fs.writeFile(filePath, buffer);
 
-        return { filePath };
-      } catch (error) {
-        throw error;
-      }
+      return { filePath };
     });
 
     // History management
@@ -227,7 +224,9 @@ class AuraApp {
       if (entry.audioFilePath && fs.existsSync(entry.audioFilePath)) {
         try {
           await fs.unlink(entry.audioFilePath);
-        } catch (error) {}
+        } catch (error) {
+          handleErrorSilently(error, 'Failed to delete audio file');
+        }
       }
 
       this.history.splice(index, 1);
@@ -243,7 +242,9 @@ class AuraApp {
         if (entry.audioFilePath && fs.existsSync(entry.audioFilePath)) {
           try {
             await fs.unlink(entry.audioFilePath);
-          } catch (error) {}
+          } catch (error) {
+            handleErrorSilently(error, 'Failed to delete audio file');
+          }
         }
       }
 
@@ -528,11 +529,7 @@ class AuraApp {
    * Saves history entries to the history file
    */
   private saveHistory(): void {
-    try {
-      fs.writeJsonSync(this.historyPath, this.history, { spaces: 2 });
-    } catch (error) {
-      throw error;
-    }
+    fs.writeJsonSync(this.historyPath, this.history, { spaces: 2 });
   }
 
   /**
@@ -543,7 +540,6 @@ class AuraApp {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth, height: screenHeight } =
       primaryDisplay.workAreaSize;
-    const bounds = primaryDisplay.bounds;
 
     // Calculate position more precisely for bottom-right corner
     // Use workAreaSize to avoid clipping behind dock/taskbar
@@ -802,9 +798,9 @@ class AuraApp {
 
   /**
    * Processes input with the specified agent
-   * @param agentId - The ID of the agent to use for processing
+   * @param _agentId - The ID of the agent to use for processing
    */
-  private processWithAgent(agentId: string): void {
+  private processWithAgent(_agentId: string): void {
     // This would trigger the recording process for the specified agent
     // For now, we'll just show the settings window
     this.showSettingsWindow();
@@ -828,7 +824,9 @@ class AuraApp {
           }
 
           // Window level check removed - no longer always on top
-        } catch (error) {}
+        } catch (error) {
+          handleErrorSilently(error, 'Window visibility check failed');
+        }
       }
     }, 2000);
   }

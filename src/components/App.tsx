@@ -83,7 +83,7 @@ function AppContent() {
   // Render full settings window
   return (
     <div className="h-screen flex flex-col">
-      <Header windowMode={windowMode} />
+      <Header/>
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       
       <main className="flex-1 overflow-y-auto bg-white/10">
