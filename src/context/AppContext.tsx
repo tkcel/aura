@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 
 import { RecordingService, RecordingState } from '../services/recording';
 import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult } from '../types';
@@ -17,16 +17,19 @@ interface AppContextState {
 
 type AppAction =
   | { type: 'SET_SETTINGS'; payload: AppSettings }
-  | { type: 'SET_STATE'; payload: AppState }
-  | { type: 'SELECT_AGENT'; payload: string }
-  | { type: 'SET_RECORDING'; payload: boolean }
+  | { type: 'SET_STATE'; payload: AppState; syncWithMain?: boolean }
+  | { type: 'SELECT_AGENT'; payload: string; syncWithMain?: boolean }
+  | { type: 'SET_RECORDING'; payload: boolean; syncWithMain?: boolean }
   | { type: 'SET_STT_RESULT'; payload: STTResult }
   | { type: 'SET_LLM_RESULT'; payload: ProcessingResult }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'CLEAR_RESULTS' }
   | { type: 'SET_HISTORY'; payload: HistoryEntry[] }
   | { type: 'ADD_HISTORY_ENTRY'; payload: HistoryEntry }
-  | { type: 'SET_PENDING_TRANSCRIPTION'; payload: string | null };
+  | { type: 'SET_PENDING_TRANSCRIPTION'; payload: string | null }
+  | { type: 'SET_STATE_FROM_MAIN'; payload: AppState }
+  | { type: 'SELECT_AGENT_FROM_MAIN'; payload: string }
+  | { type: 'SET_RECORDING_FROM_MAIN'; payload: boolean };
 
 const initialState: AppContextState = {
   settings: null,
@@ -41,32 +44,85 @@ const initialState: AppContextState = {
 };
 
 function appReducer(state: AppContextState, action: AppAction): AppContextState {
-  switch (action.type) {
-    case 'SET_SETTINGS':
-      return { ...state, settings: action.payload };
-    case 'SET_STATE':
-      return { ...state, currentState: action.payload };
-    case 'SELECT_AGENT':
-      return { ...state, selectedAgent: action.payload };
-    case 'SET_RECORDING':
-      return { ...state, isRecording: action.payload };
-    case 'SET_STT_RESULT':
-      return { ...state, sttResult: action.payload };
-    case 'SET_LLM_RESULT':
-      return { ...state, llmResult: action.payload };
-    case 'SET_ERROR':
-      return { ...state, error: action.payload };
-    case 'CLEAR_RESULTS':
-      return { ...state, sttResult: null, llmResult: null };
-    case 'SET_HISTORY':
-      return { ...state, history: action.payload };
-    case 'ADD_HISTORY_ENTRY':
-      return { ...state, history: [action.payload, ...state.history] };
-    case 'SET_PENDING_TRANSCRIPTION':
-      return { ...state, pendingTranscription: action.payload };
-    default:
-      return state;
-  }
+  const newState = (() => {
+    switch (action.type) {
+      case 'SET_SETTINGS':
+        return { ...state, settings: action.payload };
+      case 'SET_STATE':
+        if (state.currentState === action.payload) {
+          console.log('🔄 SET_STATE: Skipping duplicate state change:', action.payload);
+          return state;
+        }
+        console.log('🔄 SET_STATE:', state.currentState, '->', action.payload);
+        
+        // 不正な状態遷移を検出
+        if ((state.currentState === AppState.RECORDING || 
+             state.currentState === AppState.PROCESSING_STT || 
+             state.currentState === AppState.PROCESSING_LLM) && 
+            action.payload === AppState.IDLE) {
+          console.log('🚨 SUSPICIOUS TRANSITION:', state.currentState, '-> IDLE');
+          console.trace('State change stack trace:');
+        }
+        
+        return { ...state, currentState: action.payload };
+      case 'SELECT_AGENT':
+        return { ...state, selectedAgent: action.payload };
+      case 'SET_RECORDING':
+        return { ...state, isRecording: action.payload };
+      case 'SET_STT_RESULT':
+        return { ...state, sttResult: action.payload };
+      case 'SET_LLM_RESULT':
+        return { ...state, llmResult: action.payload };
+      case 'SET_ERROR':
+        return { ...state, error: action.payload };
+      case 'CLEAR_RESULTS':
+        return { ...state, sttResult: null, llmResult: null };
+      case 'SET_HISTORY':
+        return { ...state, history: action.payload };
+      case 'ADD_HISTORY_ENTRY':
+        return { ...state, history: [action.payload, ...state.history] };
+      case 'SET_PENDING_TRANSCRIPTION':
+        return { ...state, pendingTranscription: action.payload };
+      // Actions from main process - no sync back to main needed
+      case 'SET_STATE_FROM_MAIN':
+        console.log('📡 SET_STATE_FROM_MAIN:', state.currentState, '->', action.payload);
+        if ((state.currentState === AppState.RECORDING || 
+             state.currentState === AppState.PROCESSING_STT || 
+             state.currentState === AppState.PROCESSING_LLM) && 
+            action.payload === AppState.IDLE) {
+          console.log('🚨 SUSPICIOUS MAIN TRANSITION:', state.currentState, '-> IDLE');
+        }
+        return { ...state, currentState: action.payload };
+      case 'SELECT_AGENT_FROM_MAIN':
+        return { ...state, selectedAgent: action.payload };
+      case 'SET_RECORDING_FROM_MAIN':
+        return { ...state, isRecording: action.payload };
+      default:
+        return state;
+    }
+  })();
+
+  // TEMPORARILY DISABLE ALL MAIN PROCESS SYNC
+  // if ((action.type === 'SET_STATE' || action.type === 'SET_RECORDING' || action.type === 'SELECT_AGENT') && 
+  //     action.syncWithMain !== false) {
+  //   // Use setTimeout to avoid blocking the state update
+  //   setTimeout(() => {
+  //     try {
+  //       if (action.type === 'SET_STATE') {
+  //         console.log('🔄 Syncing state with main process:', action.payload);
+  //         // window.electronAPI.setState?.(action.payload);
+  //       } else if (action.type === 'SET_RECORDING') {
+  //         window.electronAPI.setRecordingState?.(action.payload);
+  //       } else if (action.type === 'SELECT_AGENT') {
+  //         window.electronAPI.setSelectedAgent?.(action.payload);
+  //       }
+  //     } catch (error) {
+  //       console.warn('Failed to sync state with main process:', error);
+  //     }
+  //   }, 0);
+  // }
+
+  return newState;
 }
 
 interface AppContextValue extends AppContextState {
@@ -103,40 +159,71 @@ interface AppProviderProps {
 export function AppProvider({ children }: AppProviderProps) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const recordingService = RecordingService.getInstance();
+  const stateRef = useRef(state);
+
+  // Update state ref whenever state changes
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Initialize app and load settings
   useEffect(() => {
     loadSettings();
     loadHistory();
+    loadInitialState();
     setupElectronListeners();
     setupRecordingService();
   }, []);
 
+  const loadInitialState = async () => {
+    try {
+      const appState = await window.electronAPI.getAppState();
+      dispatch({ type: 'SET_STATE', payload: appState.currentState });
+      dispatch({ type: 'SET_RECORDING', payload: appState.isRecording });
+      if (appState.selectedAgent) {
+        dispatch({ type: 'SELECT_AGENT', payload: appState.selectedAgent });
+      }
+    } catch (error) {
+      console.error('Failed to load initial state:', error);
+    }
+  };
+
   const setupRecordingService = () => {
     recordingService.setEventHandlers({
       onStateChange: (recordingState: RecordingState) => {
-        console.log('🎤 Recording state changed:', recordingState);
+        console.log('🎤 RecordingState changed to:', recordingState, 'Current AppState:', stateRef.current.currentState);
         
+        // RecordingService状態変更はisRecordingフラグのみ更新
+        // AppStateは独立して管理
         switch (recordingState) {
           case RecordingState.RECORDING:
             dispatch({ type: 'SET_RECORDING', payload: true });
-            dispatch({ type: 'SET_STATE', payload: AppState.RECORDING });
-            dispatch({ type: 'CLEAR_RESULTS' });
+            if (stateRef.current.currentState === AppState.IDLE) {
+              dispatch({ type: 'SET_STATE', payload: AppState.RECORDING });
+              dispatch({ type: 'CLEAR_RESULTS' });
+            }
             break;
           case RecordingState.PROCESSING:
             dispatch({ type: 'SET_RECORDING', payload: false });
+            // RECORDING状態からRECORDING状態以外でもPROCESSING_STTに遷移
+            console.log('🎤 RecordingState.PROCESSING - Force transition to PROCESSING_STT');
             dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_STT });
             break;
           case RecordingState.IDLE:
             dispatch({ type: 'SET_RECORDING', payload: false });
-            if (state.currentState === AppState.PROCESSING_STT) {
-              // Only set to IDLE if we were processing
-              dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
-            }
+            // RecordingService.IDLEはisRecordingフラグのみ更新
+            // AppStateはそのまま維持
+            console.log('🎤 RecordingState.IDLE - Maintaining current state:', stateRef.current.currentState);
             break;
           case RecordingState.ERROR:
             dispatch({ type: 'SET_RECORDING', payload: false });
             dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
+            
+            // Auto-clear error after 5 seconds
+            setTimeout(() => {
+              dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+              dispatch({ type: 'SET_ERROR', payload: null });
+            }, 5000);
             break;
         }
       },
@@ -146,18 +233,33 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
         dispatch({ type: 'SET_RECORDING', payload: false });
       },
-      onTranscriptionComplete: (result: STTResult) => {
-        console.log('✅ Transcription complete:', result);
+      onTranscriptionComplete: (result: STTResult, audioFilePath?: string) => {
         dispatch({ type: 'SET_STT_RESULT', payload: result });
-        processTranscriptionResult(result);
+        // STT完了後は明示的にLLM処理またはIDLEに遷移
+        processTranscriptionResult(result, audioFilePath);
       }
     });
+    
+    // Configure transcription settings when settings are available
+    updateRecordingServiceSettings();
+  };
+
+  const updateRecordingServiceSettings = () => {
+    if (stateRef.current.settings) {
+      recordingService.setTranscriptionSettings(
+        stateRef.current.settings.openaiApiKey,
+        stateRef.current.settings.language,
+        stateRef.current.settings.saveAudioFiles
+      );
+    }
   };
 
   const loadSettings = async () => {
     try {
       const settings = await window.electronAPI.getSettings();
       dispatch({ type: 'SET_SETTINGS', payload: settings });
+      // Update recording service settings after loading
+      setTimeout(() => updateRecordingServiceSettings(), 100);
     } catch (error) {
       console.error('Failed to load settings:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load settings' });
@@ -172,6 +274,8 @@ export function AppProvider({ children }: AppProviderProps) {
           type: 'SET_SETTINGS', 
           payload: { ...state.settings, ...newSettings } 
         });
+        // Update recording service settings after updating
+        setTimeout(() => updateRecordingServiceSettings(), 100);
       }
     } catch (error) {
       console.error('Failed to update settings:', error);
@@ -181,12 +285,10 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const startRecording = async () => {
     if (state.isRecording || !state.selectedAgent) {
-      console.log('Cannot start recording:', { isRecording: state.isRecording, selectedAgent: state.selectedAgent });
       return;
     }
 
     try {
-      console.log('Starting recording...');
       await recordingService.startRecording();
     } catch (error) {
       console.error('Start recording failed:', error);
@@ -197,18 +299,11 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const stopRecording = async () => {
     if (!state.isRecording) {
-      console.log('Cannot stop recording: not recording');
       return;
     }
 
     try {
-      console.log('Stopping recording...');
       await recordingService.stopRecording();
-      
-      // Start transcription process
-      setTimeout(async () => {
-        await processRecordingTranscription();
-      }, 100);
     } catch (error) {
       console.error('Stop recording failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -216,73 +311,42 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
-  const processRecordingTranscription = async () => {
-    if (!state.selectedAgent || !state.settings) return;
-
-    try {
-      console.log('🤖 Starting transcription process...');
-      dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_STT });
-      
-      // Use the recording service to transcribe the latest recording
-      const transcriptionResult = await recordingService.transcribeLatestRecording(
-        state.settings.openaiApiKey,
-        state.settings.language,
-        state.settings.saveAudioFiles
-      );
-      
-      const sttResult = transcriptionResult.result;
-      
-      console.log('🎯 STT result received:', sttResult.text);
-      dispatch({ type: 'SET_STT_RESULT', payload: sttResult });
-      console.log('🎯 Calling processTranscriptionResult...');
-      await processTranscriptionResult(sttResult, transcriptionResult.audioFilePath);
-      
-    } catch (error) {
-      console.error('Transcription failed:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-      dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
-      
-      // Return to IDLE state after error
-      setTimeout(() => {
-        dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
-        dispatch({ type: 'SET_ERROR', payload: null });
-      }, 5000);
-    }
-  };
-
   const processTranscriptionResult = async (sttResult: STTResult, audioFilePath?: string) => {
-    console.log('🎯 processTranscriptionResult called with:', { 
-      sttText: sttResult.text, 
-      selectedAgent: state.selectedAgent,
-      hasSettings: !!state.settings 
-    });
-    if (!state.selectedAgent || !state.settings) return;
-
-    // Get the selected agent configuration
-    const selectedAgentConfig = state.settings.agents.find(a => a.id === state.selectedAgent);
+    console.log('🎯 processTranscriptionResult called, current state:', stateRef.current.currentState);
+    
+    // 設定チェック
+    const currentState = stateRef.current;
+    if (!currentState.settings || !currentState.selectedAgent) {
+      console.log('🎯 Missing settings or agent, transitioning to IDLE');
+      dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+      return;
+    }
+    
+    const selectedAgentConfig = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
     if (!selectedAgentConfig) {
+      console.log('🎯 Agent not found, transitioning to IDLE');
       dispatch({ type: 'SET_ERROR', payload: 'Selected agent not found' });
+      dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
 
     // Check if AI processing is enabled for this agent
-    console.log('🎯 Agent autoProcessAi setting:', selectedAgentConfig.autoProcessAi);
+    console.log('🎯 Agent autoProcessAi:', selectedAgentConfig.autoProcessAi);
     if (!selectedAgentConfig.autoProcessAi) {
-      console.log('🎯 AI processing disabled for this agent, setting pending transcription');
-      // Set as pending transcription for user to decide
+      console.log('🎯 AI processing disabled, setting pending transcription and transitioning to IDLE');
       dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: sttResult.text });
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
 
-    console.log('🎯 AI processing enabled, proceeding with LLM processing');
-
+    // LLM処理開始
+    console.log('🎯 Starting LLM processing...');
+    dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
+    
     try {
-      dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
 
       // Get agent configuration
-      const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
+      const agent = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
       if (!agent) {
         throw new Error('Selected agent not found');
       }
@@ -290,7 +354,7 @@ export function AppProvider({ children }: AppProviderProps) {
       // Process with LLM
       const llmResult = await window.electronAPI.processWithLLM({
         text: sttResult.text,
-        agentId: state.selectedAgent
+        agentId: currentState.selectedAgent
       });
 
       if (llmResult.success) {
@@ -304,40 +368,29 @@ export function AppProvider({ children }: AppProviderProps) {
         ) {
           const llmTyped: LLMResult = resultObj as LLMResult;
           const result: ProcessingResult = {
-            agentId: state.selectedAgent,
+            agentId: currentState.selectedAgent,
             sttResult,
             llmResult: llmTyped,
             timestamp: new Date()
           };
+          console.log('🎯 LLM processing completed successfully');
           dispatch({ type: 'SET_LLM_RESULT', payload: result });
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
 
           // Check if we should auto-paste or show result window
-          console.log('🔍 Checking cursor state...');
           const shouldAutoPaste = await window.electronAPI.checkCursorState?.();
-          console.log('🔍 Cursor state result:', shouldAutoPaste);
           
-          // Temporary: Always show result window for debugging
-          console.log('🪟 [DEBUG] Always showing result window for debugging...');
+          // Always show result window
           await window.electronAPI.showResultWindow?.();
-          
-          // if (shouldAutoPaste) {
-          //   console.log('📋 Auto-pasting text...');
-          //   await window.electronAPI.pasteText?.((llmTyped.text));
-          // } else {
-          //   console.log('🪟 Showing result window...');
-          //   // Show result in small window
-          //   await window.electronAPI.showResultWindow?.();
-          // }
 
           // Auto-copy to clipboard
           await copyToClipboard(llmTyped.text);
 
           // Add to history
           const duration = recordingService.getRecordingDuration() ?? undefined;
-          const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
+          const agent = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
           const historyEntry: Omit<HistoryEntry, 'id'> = {
-            agentId: state.selectedAgent,
+            agentId: currentState.selectedAgent,
             agentName: agent?.name || 'Unknown Agent',
             transcription: sttResult.text,
             response: llmTyped.text,
@@ -352,33 +405,46 @@ export function AppProvider({ children }: AppProviderProps) {
           throw new Error('LLM result 型不正');
         }
 
-        // After a brief moment, return to IDLE state
+        // 処理完了後、明示的にIDLEに遷移
+        console.log('🎯 Processing complete, transitioning to IDLE in 3 seconds');
         setTimeout(() => {
-          dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
-        }, 3000); // Show results for 3 seconds
+          const currentState = stateRef.current.currentState;
+          if (currentState === AppState.COMPLETED) {
+            console.log('🎯 Transitioning to IDLE after completion');
+            dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+          } else {
+            console.log('🎯 Skipping IDLE transition, current state:', currentState);
+          }
+        }, 3000);
 
       } else {
         throw new Error(llmResult.error || 'LLM processing failed');
       }
 
     } catch (error) {
+      console.log('🎯 LLM processing failed, transitioning to ERROR then IDLE');
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
       
-      // Return to IDLE state after error
+      // エラー後、明示的にIDLEに遷移
       setTimeout(() => {
-        dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
-        dispatch({ type: 'SET_ERROR', payload: null });
-      }, 5000); // Show error for 5 seconds
+        const currentState = stateRef.current.currentState;
+        if (currentState === AppState.ERROR) {
+          console.log('🎯 Error cleared, transitioning to IDLE');
+          dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+          dispatch({ type: 'SET_ERROR', payload: null });
+        } else {
+          console.log('🎯 Skipping error clear, current state:', currentState);
+        }
+      }, 3000);
     }
   };
 
   const selectAgent = (agentId: string) => {
-    console.log('selectAgent called with:', agentId);
     dispatch({ type: 'SELECT_AGENT', payload: agentId });
     dispatch({ type: 'CLEAR_RESULTS' });
-    // Note: Recording is now manually controlled by user
+    // Main process sync is handled in reducer
   };
 
   const copyToClipboard = async (text: string) => {
@@ -483,22 +549,10 @@ export function AppProvider({ children }: AppProviderProps) {
           dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: null });
           
           // Check if we should auto-paste or show result window
-          console.log('🔍 [Manual] Checking cursor state...');
           const shouldAutoPaste = await window.electronAPI.checkCursorState?.();
-          console.log('🔍 [Manual] Cursor state result:', shouldAutoPaste);
           
-          // Temporary: Always show result window for debugging
-          console.log('🪟 [DEBUG] [Manual] Always showing result window for debugging...');
+          // Always show result window
           await window.electronAPI.showResultWindow?.();
-          
-          // if (shouldAutoPaste) {
-          //   console.log('📋 [Manual] Auto-pasting text...');
-          //   await window.electronAPI.pasteText?.((resultObj as LLMResult).text);
-          // } else {
-          //   console.log('🪟 [Manual] Showing result window...');
-          //   // Show result in small window
-          //   await window.electronAPI.showResultWindow?.();
-          // }
 
           await copyToClipboard((resultObj as LLMResult).text);
 
@@ -527,10 +581,7 @@ export function AppProvider({ children }: AppProviderProps) {
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
       
-      setTimeout(() => {
-        dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
-        dispatch({ type: 'SET_ERROR', payload: null });
-      }, 5000);
+      // Error auto-clear is handled in setupRecordingService
     }
   };
 
@@ -560,6 +611,39 @@ export function AppProvider({ children }: AppProviderProps) {
     window.electronAPI.onError((error: string) => {
       dispatch({ type: 'SET_ERROR', payload: error });
     });
+
+    // Agent selection from main process (bar window context menu)
+    window.electronAPI.onSelectAgent((agentId: string) => {
+      dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
+    });
+
+    // App state updates from main process - TEMPORARILY DISABLED
+    // window.electronAPI.onAppStateUpdated?.((appState) => {
+    //   console.log('📡 Received app state update from main:', appState);
+    //   dispatch({ type: 'SET_STATE_FROM_MAIN', payload: appState.currentState });
+    //   dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: appState.isRecording });
+    //   if (appState.selectedAgent !== null) {
+    //     dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: appState.selectedAgent });
+    //   }
+    // });
+
+    // History updates from main process
+    window.electronAPI.onHistoryUpdated?.((history) => {
+      dispatch({ type: 'SET_HISTORY', payload: history });
+    });
+
+    // TEMPORARILY DISABLE MAIN PROCESS LISTENERS
+    // // Selected agent changes from main process
+    // window.electronAPI.onSelectedAgentChanged?.((agentId) => {
+    //   if (agentId) {
+    //     dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
+    //   }
+    // });
+
+    // // Recording state changes from main process
+    // window.electronAPI.onRecordingStateChanged?.((isRecording) => {
+    //   dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: isRecording });
+    // });
   };
 
   const contextValue: AppContextValue = {

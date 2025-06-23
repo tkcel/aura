@@ -12,7 +12,7 @@ export enum RecordingState {
 export interface RecordingEventHandlers {
   onStateChange?: (state: RecordingState) => void;
   onError?: (error: Error) => void;
-  onTranscriptionComplete?: (result: STTResult) => void;
+  onTranscriptionComplete?: (result: STTResult, audioFilePath?: string) => void;
 }
 
 export class RecordingService {
@@ -23,6 +23,13 @@ export class RecordingService {
   private audioChunks: Blob[] = [];
   private eventHandlers: RecordingEventHandlers = {};
   private recordingStartTime: Date | null = null;
+  
+  // Settings for automatic transcription
+  private transcriptionSettings: {
+    apiKey: string;
+    language: string;
+    saveAudioFiles: boolean;
+  } | null = null;
 
   private constructor() {
     // Private constructor for singleton pattern
@@ -39,6 +46,10 @@ export class RecordingService {
     this.eventHandlers = handlers;
   }
 
+  public setTranscriptionSettings(apiKey: string, language = "ja", saveAudioFiles = false): void {
+    this.transcriptionSettings = { apiKey, language, saveAudioFiles };
+  }
+
   public getState(): RecordingState {
     return this.state;
   }
@@ -50,7 +61,6 @@ export class RecordingService {
   private setState(newState: RecordingState): void {
     if (this.state !== newState) {
       this.state = newState;
-      console.log(`Recording state changed: ${newState}`);
       this.eventHandlers.onStateChange?.(newState);
     }
   }
@@ -68,7 +78,6 @@ export class RecordingService {
     }
 
     try {
-      console.log("🎤 Requesting microphone access...");
 
       // Request microphone access
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -97,7 +106,6 @@ export class RecordingService {
       this.mediaRecorder.start(100); // Collect data every 100ms
 
       this.setState(RecordingState.RECORDING);
-      console.log("✅ Recording started successfully");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -112,7 +120,6 @@ export class RecordingService {
     }
 
     try {
-      console.log("🛑 Stopping recording...");
 
       if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
         this.mediaRecorder.stop();
@@ -137,7 +144,6 @@ export class RecordingService {
     };
 
     this.mediaRecorder.onstop = () => {
-      console.log("📁 Recording stopped, processing audio...");
       this.processRecording();
     };
 
@@ -163,11 +169,6 @@ export class RecordingService {
       const mimeType = this.getSupportedMimeType();
       const audioBlob = new Blob(this.audioChunks, { type: mimeType });
 
-      console.log("📊 Audio blob created:", {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        sizeKB: Math.round(audioBlob.size / 1024),
-      });
 
       if (audioBlob.size === 0) {
         throw new Error("Recorded audio is empty");
@@ -177,19 +178,60 @@ export class RecordingService {
       this.currentAudioBlob = audioBlob;
       this.currentAudioPath = null;
 
-      // Clean up resources
-      this.cleanup();
+      // Clean up recording resources but keep processing state
+      this.cleanupRecordingResources();
 
-      // Set to idle state
-      this.setState(RecordingState.IDLE);
-
-      console.log("🎵 Recording processing complete, ready for transcription");
+      
+      // Automatically start transcription if settings are available
+      if (this.transcriptionSettings) {
+        await this.performTranscription();
+      } else {
+        console.warn("⚠️ No transcription settings configured, skipping transcription");
+        this.setState(RecordingState.IDLE);
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.handleError(
         new Error(`Failed to process recording: ${errorMessage}`)
       );
+    }
+  }
+
+  private async performTranscription(): Promise<void> {
+    if (!this.currentAudioBlob || !this.transcriptionSettings) {
+      throw new Error("No audio data or transcription settings available");
+    }
+
+    try {
+      
+      let audioFilePath: string | undefined;
+
+      if (this.transcriptionSettings.saveAudioFiles) {
+        audioFilePath = await this.saveAudioFileViaIPC(this.currentAudioBlob);
+        this.currentAudioPath = audioFilePath;
+      }
+
+      const result = await this.transcribeAudio(
+        this.currentAudioBlob,
+        this.transcriptionSettings.apiKey,
+        this.transcriptionSettings.language
+      );
+
+      // Clear the audio blob after successful transcription
+      this.currentAudioBlob = null;
+      
+      // Notify completion via handler
+      this.eventHandlers.onTranscriptionComplete?.(result, audioFilePath);
+      
+      // Transition to IDLE state after handler notification
+      this.setState(RecordingState.IDLE);
+      
+    } catch (error) {
+      // Handle transcription errors
+      this.currentAudioBlob = null;
+      this.setState(RecordingState.ERROR);
+      throw error;
     }
   }
 
@@ -202,21 +244,35 @@ export class RecordingService {
       throw new Error("No recording available for transcription");
     }
 
-    let audioFilePath: string | undefined;
+    try {
+      let audioFilePath: string | undefined;
 
-    if (saveAudioFile) {
-      audioFilePath = await this.saveAudioFileViaIPC(this.currentAudioBlob);
-      this.currentAudioPath = audioFilePath;
+      if (saveAudioFile) {
+        audioFilePath = await this.saveAudioFileViaIPC(this.currentAudioBlob);
+        this.currentAudioPath = audioFilePath;
+      }
+
+      const result = await this.transcribeAudio(
+        this.currentAudioBlob,
+        apiKey,
+        language
+      );
+
+      // Clear the audio blob after successful transcription
+      
+      // Notify completion via handler BEFORE state transition
+      this.eventHandlers.onTranscriptionComplete?.(result, audioFilePath);
+      
+      // Transition to IDLE state after handler notification
+      this.setState(RecordingState.IDLE);
+      
+      return { result, audioFilePath };
+    } catch (error) {
+      // Handle transcription errors
+      this.currentAudioBlob = null;
+      this.setState(RecordingState.ERROR);
+      throw error;
     }
-
-    const result = await this.transcribeAudio(
-      this.currentAudioBlob,
-      apiKey,
-      language
-    );
-
-    this.currentAudioBlob = null;
-    return { result, audioFilePath };
   }
 
   public getLastAudioFilePath(): string | null {
@@ -240,7 +296,6 @@ export class RecordingService {
       mimeType: audioBlob.type,
     });
 
-    console.log("💾 Audio file saved:", result.filePath);
     return result.filePath;
   }
 
@@ -252,7 +307,6 @@ export class RecordingService {
     try {
       if (!apiKey || !apiKey.startsWith("sk-")) {
         // Mock implementation for testing
-        console.log("Using mock transcription service");
         return {
           text: "これはテスト用の音声認識結果です。実際のAPIキーを設定すると、OpenAI Whisperが使用されます。",
           language: language,
@@ -260,7 +314,6 @@ export class RecordingService {
         };
       }
 
-      console.log("🤖 Starting transcription with OpenAI Whisper...");
 
       const openai = new OpenAI({
         apiKey,
@@ -286,8 +339,6 @@ export class RecordingService {
         confidence: 0.95,
       };
 
-      console.log("✅ Transcription successful:", result.text);
-      this.eventHandlers.onTranscriptionComplete?.(result);
 
       return result;
     } catch (error) {
@@ -308,7 +359,6 @@ export class RecordingService {
 
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
-        console.log(`Using MIME type: ${type}`);
         return type;
       }
     }
@@ -317,7 +367,7 @@ export class RecordingService {
     return "audio/webm";
   }
 
-  private cleanup(): void {
+  private cleanupRecordingResources(): void {
     // Stop media stream
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => {
@@ -329,13 +379,16 @@ export class RecordingService {
     // Clean up MediaRecorder
     this.mediaRecorder = null;
     this.audioChunks = [];
+  }
 
+  private cleanup(): void {
+    this.cleanupRecordingResources();
+    
     // Reset recording time but keep audio path for history
     this.recordingStartTime = null;
   }
 
   public forceReset(): void {
-    console.log("🔄 Force resetting recording service...");
     this.cleanup();
     this.setState(RecordingState.IDLE);
     this.currentAudioPath = null;

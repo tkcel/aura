@@ -3,16 +3,12 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 
 export default function RecordingControls() {
-  const { selectedAgent, isRecording, startRecording, stopRecording, currentState } = useApp();
+  const { selectedAgent, isRecording, startRecording, stopRecording } = useApp();
 
   const handleRecordingToggle = () => {
-    console.log('Recording toggle clicked:', { isRecording, selectedAgent, currentState });
-    
     if (isRecording) {
-      console.log('Calling stopRecording...');
       stopRecording();
     } else {
-      console.log('Calling startRecording...');
       startRecording();
     }
   };

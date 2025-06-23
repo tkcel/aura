@@ -14,6 +14,8 @@ import { AppState } from '../types';
 export default function SimpleFloatingButton() {
   const { currentState, isRecording, startRecording, stopRecording, settings, selectAgent, selectedAgent } = useApp();
 
+  console.log('BarWindow: currentState', currentState);
+
   // Get selected agent color
   const selectedAgentColor = selectedAgent && settings ? 
     settings.agents.find(a => a.id === selectedAgent)?.color : null;

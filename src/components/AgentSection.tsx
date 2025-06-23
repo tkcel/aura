@@ -6,18 +6,11 @@ export default function AgentSection() {
   const { settings, selectedAgent, selectAgent } = useApp();
 
   if (!settings) {
-    console.log('AgentSection: No settings available');
     return null;
   }
 
   const enabledAgents = settings.agents.filter(agent => agent.enabled);
   
-  console.log('AgentSection render:', {
-    settingsExists: !!settings,
-    enabledAgentsCount: enabledAgents.length,
-    selectedAgent,
-    firstAgent: enabledAgents[0]?.name
-  });
 
   return (
     <section className="mb-8">

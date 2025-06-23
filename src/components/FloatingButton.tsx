@@ -107,10 +107,11 @@ export default function FloatingButton() {
   };
 
   const getMainButtonStyle = () => {
-    if (isRecording) {
-      return 'bg-red-500 animate-pulse shadow-red-500/50';
-    }
     switch (currentState) {
+      case AppState.IDLE:
+        return 'bg-gray-800 hover:bg-gray-700 shadow-gray-800/50';
+      case AppState.RECORDING:
+        return 'bg-red-500 animate-pulse shadow-red-500/50';
       case AppState.PROCESSING_STT:
       case AppState.PROCESSING_LLM:
         return 'bg-purple-500 animate-spin shadow-purple-500/50';
@@ -169,7 +170,7 @@ export default function FloatingButton() {
       style={{ 
         left: `${position.x}px`, 
         top: `${position.y}px`,
-        zIndex: 9999 
+        zIndex: 10 
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

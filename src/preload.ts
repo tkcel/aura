@@ -85,9 +85,48 @@ const api = {
   closeResultWindow: (): Promise<void> =>
     ipcRenderer.invoke("close-result-window"),
 
+  // Global state management
+  getAppState: (): Promise<{
+    currentState: AppState;
+    isRecording: boolean;
+    selectedAgent: string | null;
+  }> => ipcRenderer.invoke("get-app-state"),
+
+  setSelectedAgent: (agentId: string): Promise<boolean> =>
+    ipcRenderer.invoke("set-selected-agent", agentId),
+
+  setRecordingState: (isRecording: boolean): Promise<boolean> =>
+    ipcRenderer.invoke("set-recording-state", isRecording),
+
+  notifyRecordingStateChange: (recordingState: string): Promise<void> =>
+    ipcRenderer.invoke("notify-recording-state-change", recordingState),
+
+  notifyTranscriptionComplete: (result: STTResult): Promise<void> =>
+    ipcRenderer.invoke("notify-transcription-complete", result),
+
   // Event listeners
   onStateChanged: (callback: (state: AppState) => void) => {
     ipcRenderer.on("state-changed", (_, state) => callback(state));
+  },
+
+  onAppStateUpdated: (callback: (state: {
+    currentState: AppState;
+    isRecording: boolean;
+    selectedAgent: string | null;
+  }) => void) => {
+    ipcRenderer.on("app-state-updated", (_, state) => callback(state));
+  },
+
+  onHistoryUpdated: (callback: (history: HistoryEntry[]) => void) => {
+    ipcRenderer.on("history-updated", (_, history) => callback(history));
+  },
+
+  onSelectedAgentChanged: (callback: (agentId: string | null) => void) => {
+    ipcRenderer.on("selected-agent-changed", (_, agentId) => callback(agentId));
+  },
+
+  onRecordingStateChanged: (callback: (isRecording: boolean) => void) => {
+    ipcRenderer.on("recording-state-changed", (_, isRecording) => callback(isRecording));
   },
 
   onSttResult: (callback: (result: STTResult) => void) => {

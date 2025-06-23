@@ -6,7 +6,6 @@ interface TabNavigationProps {
 }
 
 const tabs = [
-  { id: 'recording', label: '録音', icon: '🎤' },
   { id: 'mode-edit', label: 'モード編集', icon: '⚙️' },
   { id: 'history', label: '履歴', icon: '📋' },
   { id: 'settings', label: '設定', icon: '🔧' }

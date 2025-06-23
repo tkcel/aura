@@ -8,6 +8,10 @@ export default function ModeEditScreen() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
+  if (!settings) {
+    return <div className="p-6 text-white">設定を読み込み中...</div>;
+  }
+
   const handleSaveAgent = (agent: Agent) => {
     const updatedAgents = editingAgent
       ? settings.agents.map(a => a.id === agent.id ? agent : a)

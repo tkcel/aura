@@ -84,21 +84,6 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
     }
   };
 
-
-  const handleReset = () => {
-    if (settings) {
-      setFormData({
-        openaiApiKey: settings.openaiApiKey,
-        language: settings.language,
-        autoStartup: settings.autoStartup,
-        systemTray: settings.systemTray,
-        soundNotifications: settings.soundNotifications,
-        saveAudioFiles: settings.saveAudioFiles,
-        maxHistoryEntries: settings.maxHistoryEntries,
-      });
-    }
-  };
-
   const content = (
     <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
@@ -261,12 +246,6 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
 
         {/* Footer */}
         <div className="flex gap-4 justify-end p-6 border-t border-gray-200">
-          <button
-            onClick={handleReset}
-            className="btn btn-secondary"
-          >
-            🔄 リセット
-          </button>
           <button
             onClick={handleSave}
             className="btn btn-primary"

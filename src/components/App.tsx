@@ -8,14 +8,13 @@ import Header from './Header';
 import HistoryScreen from './HistoryScreen';
 import ModeEditScreen from './ModeEditScreen';
 import ProcessingOverlay from './ProcessingOverlay';
-import RecordingScreen from './RecordingScreen';
 import ResultWindow from './ResultWindow';
 import SettingsScreen from './SettingsScreen';
 import TabNavigation from './TabNavigation';
 
 function AppContent() {
   const { currentState, error, clearError } = useApp();
-  const [activeTab, setActiveTab] = useState('recording');
+  const [activeTab, setActiveTab] = useState('mode-edit');
   const [windowMode, setWindowMode] = useState<'bar' | 'settings' | 'result'>('settings');
 
   // Detect window mode from URL parameters
@@ -71,8 +70,6 @@ function AppContent() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'recording':
-        return <RecordingScreen />;
       case 'mode-edit':
         return <ModeEditScreen />;
       case 'history':
@@ -80,7 +77,7 @@ function AppContent() {
       case 'settings':
         return <SettingsScreen />;
       default:
-        return <RecordingScreen />;
+        return <ModeEditScreen />;
     }
   };
 

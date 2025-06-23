@@ -20,7 +20,7 @@ import * as fs from "fs-extra";
 import { APP_CONFIG, SHORTCUTS, WINDOW_CONFIG } from "./constants/app";
 import { LLMService } from "./services/llm";
 import { SettingsService } from "./services/settings";
-import { AppState, HistoryEntry } from "./types";
+import { AppState, HistoryEntry, STTResult } from "./types";
 import { getErrorMessage } from "./utils/errors";
 import { generateId } from "./utils/helpers";
 
@@ -48,6 +48,12 @@ class AuraApp {
 
   /** Current application state */
   private currentState: AppState = AppState.IDLE;
+
+  /** Current recording state */
+  private isRecording = false;
+
+  /** Currently selected agent ID */
+  private selectedAgent: string | null = null;
 
   /** Path to history file */
   private historyPath: string;
@@ -78,6 +84,12 @@ class AuraApp {
     }
 
     this.setupIpcHandlers();
+
+    // Initialize selected agent
+    const enabledAgents = this.settingsService.getEnabledAgents();
+    if (enabledAgents.length > 0) {
+      this.selectedAgent = enabledAgents[0].id;
+    }
   }
 
   /**
@@ -124,18 +136,26 @@ class AuraApp {
           throw new Error(`Agent not found: ${agentId}`);
         }
 
-        this.currentState = AppState.PROCESSING_LLM;
-        this.sendToRenderer("state-changed", this.currentState);
+        this.setAppState(AppState.PROCESSING_LLM);
 
         const llmResult = await this.llmService.processText(text, agent);
 
-        this.currentState = AppState.COMPLETED;
-        this.sendToRenderer("state-changed", this.currentState);
+        this.setAppState(AppState.COMPLETED);
+
+        // Auto return to IDLE after showing results
+        setTimeout(() => {
+          this.setAppState(AppState.IDLE);
+        }, 3000);
 
         return { success: true, result: llmResult };
       } catch (error) {
-        this.currentState = AppState.ERROR;
-        this.sendToRenderer("state-changed", this.currentState);
+        this.setAppState(AppState.ERROR);
+        
+        // Auto return to IDLE after showing error
+        setTimeout(() => {
+          this.setAppState(AppState.IDLE);
+        }, 5000);
+        
         const errorMessage = getErrorMessage(error);
         return { success: false, error: errorMessage };
       }
@@ -154,11 +174,6 @@ class AuraApp {
 
         await fs.writeFile(filePath, buffer);
 
-        console.log("💾 Audio file saved:", {
-          path: filePath,
-          size: buffer.length,
-          sizeKB: Math.round(buffer.length / 1024),
-        });
 
         return { filePath };
       } catch (error) {
@@ -180,13 +195,8 @@ class AuraApp {
 
         this.history.unshift(historyEntry); // Add to beginning
         this.saveHistory();
+        this.sendToRenderer("history-updated", this.history);
 
-        console.log("📝 Added history entry:", {
-          id,
-          agentName: entry.agentName,
-          transcriptionLength: entry.transcription.length,
-          hasAudioFile: !!entry.audioFilePath,
-        });
 
         return id;
       }
@@ -204,7 +214,6 @@ class AuraApp {
       if (entry.audioFilePath && fs.existsSync(entry.audioFilePath)) {
         try {
           await fs.unlink(entry.audioFilePath);
-          console.log(`🗑️ Deleted audio file: ${entry.audioFilePath}`);
         } catch (error) {
           console.warn("Failed to delete audio file:", error);
         }
@@ -212,8 +221,8 @@ class AuraApp {
 
       this.history.splice(index, 1);
       this.saveHistory();
+      this.sendToRenderer("history-updated", this.history);
 
-      console.log(`🗑️ Deleted history entry: ${id}`);
       return true;
     });
 
@@ -231,7 +240,35 @@ class AuraApp {
 
       this.history = [];
       this.saveHistory();
-      console.log("🧹 Cleared all history");
+      this.sendToRenderer("history-updated", this.history);
+    });
+
+    // Global state management
+    ipcMain.handle("get-app-state", () => {
+      return {
+        currentState: this.currentState,
+        isRecording: this.isRecording,
+        selectedAgent: this.selectedAgent,
+      };
+    });
+
+    ipcMain.handle("set-selected-agent", (_, agentId: string) => {
+      this.setSelectedAgent(agentId);
+      return true;
+    });
+
+    ipcMain.handle("set-recording-state", (_, isRecording: boolean) => {
+      this.setRecordingState(isRecording);
+      return true;
+    });
+
+    // Recording service state notifications
+    ipcMain.handle("notify-recording-state-change", (_, recordingState: string) => {
+      this.handleRecordingStateChange(recordingState);
+    });
+
+    ipcMain.handle("notify-transcription-complete", (_, result: STTResult) => {
+      this.handleTranscriptionComplete(result);
     });
 
     // Window management
@@ -277,7 +314,7 @@ class AuraApp {
             type: "radio",
             checked: selectedAgent?.id === agent.id,
             click: () => {
-              this.sendToRenderer("select-agent", agent.id);
+              this.setSelectedAgent(agent.id);
             },
           });
         });
@@ -336,6 +373,96 @@ class AuraApp {
   }
 
   /**
+   * Sets the application state and notifies all windows
+   * @param newState - The new application state
+   */
+  private setAppState(newState: AppState): void {
+    this.currentState = newState;
+    this.sendToRenderer("state-changed", newState);
+    this.sendToRenderer("app-state-updated", {
+      currentState: this.currentState,
+      isRecording: this.isRecording,
+      selectedAgent: this.selectedAgent,
+    });
+  }
+
+  /**
+   * Sets the recording state and notifies all windows
+   * @param isRecording - The new recording state
+   */
+  private setRecordingState(isRecording: boolean): void {
+    this.isRecording = isRecording;
+    this.sendToRenderer("recording-state-changed", isRecording);
+    this.sendToRenderer("app-state-updated", {
+      currentState: this.currentState,
+      isRecording: this.isRecording,
+      selectedAgent: this.selectedAgent,
+    });
+  }
+
+  /**
+   * Sets the selected agent and notifies all windows
+   * @param agentId - The selected agent ID
+   */
+  private setSelectedAgent(agentId: string | null): void {
+    this.selectedAgent = agentId;
+    this.sendToRenderer("selected-agent-changed", agentId);
+    this.sendToRenderer("app-state-updated", {
+      currentState: this.currentState,
+      isRecording: this.isRecording,
+      selectedAgent: this.selectedAgent,
+    });
+  }
+
+  /**
+   * Handles recording service state changes and updates app state accordingly
+   * @param recordingState - The recording service state
+   */
+  private handleRecordingStateChange(recordingState: string): void {
+    
+    switch (recordingState) {
+      case 'RECORDING':
+        this.setRecordingState(true);
+        this.setAppState(AppState.RECORDING);
+        break;
+      case 'PROCESSING':
+        this.setRecordingState(false);
+        this.setAppState(AppState.PROCESSING_STT);
+        break;
+      case 'IDLE':
+        this.setRecordingState(false);
+        // Only set to IDLE if we were processing
+        if (this.currentState === AppState.PROCESSING_STT || this.currentState === AppState.RECORDING) {
+          this.setAppState(AppState.IDLE);
+        }
+        break;
+      case 'ERROR':
+        this.setRecordingState(false);
+        this.setAppState(AppState.ERROR);
+        
+        // Auto return to IDLE after showing error
+        setTimeout(() => {
+          this.setAppState(AppState.IDLE);
+        }, 5000);
+        break;
+      default:
+        console.warn('Unknown recording state:', recordingState);
+    }
+  }
+
+  /**
+   * Handles transcription completion from recording service
+   * @param result - The transcription result
+   */
+  private handleTranscriptionComplete(result: STTResult): void {
+    // Send transcription result to all windows
+    this.sendToRenderer("stt-result", result);
+    
+    // Set state to show transcription is ready for processing
+    this.setAppState(AppState.IDLE);
+  }
+
+  /**
    * Sends data to renderer processes via IPC channel
    * @param channel - The IPC channel name
    * @param data - Data to send to renderer
@@ -369,7 +496,6 @@ class AuraApp {
             timestamp: new Date(entry.timestamp),
           })
         );
-        console.log(`📚 Loaded ${this.history.length} history entries`);
       }
     } catch (error) {
       console.error("Failed to load history:", error);
@@ -383,7 +509,6 @@ class AuraApp {
   private saveHistory(): void {
     try {
       fs.writeJsonSync(this.historyPath, this.history, { spaces: 2 });
-      console.log(`💾 Saved ${this.history.length} history entries`);
     } catch (error) {
       console.error("Failed to save history:", error);
       throw error;
@@ -405,14 +530,6 @@ class AuraApp {
     const windowX = bounds.width - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
     const windowY = bounds.height - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
 
-    console.log("🖥️ Screen info:", {
-      workAreaSize: { width: screenWidth, height: screenHeight },
-      bounds: bounds,
-      windowSize: { width: WINDOW_CONFIG.BAR.WIDTH, height: WINDOW_CONFIG.BAR.HEIGHT },
-      offset: WINDOW_CONFIG.BAR.OFFSET,
-      calculatedPosition: { x: windowX, y: windowY },
-      distanceFromEdge: WINDOW_CONFIG.BAR.OFFSET
-    });
 
     // Create minimal floating window (just for the button) - position at bottom right
     this.barWindow = new BrowserWindow({
@@ -428,7 +545,7 @@ class AuraApp {
       frame: false,
       resizable: false,
       movable: false,
-      alwaysOnTop: true,
+      alwaysOnTop: false,
       skipTaskbar: true,
       transparent: true,
       hasShadow: false,
@@ -446,8 +563,8 @@ class AuraApp {
 
     // Set window level for macOS - simplified approach
     if (process.platform === "darwin") {
-      // Use a more stable window level
-      this.barWindow.setAlwaysOnTop(true, "floating", 1);
+      // Normal window level
+      this.barWindow.setAlwaysOnTop(false);
       this.barWindow.setVisibleOnAllWorkspaces(true, {
         visibleOnFullScreen: true,
       });
@@ -455,8 +572,8 @@ class AuraApp {
       // Additional macOS specific settings
       this.barWindow.setWindowButtonVisibility(false);
     } else {
-      // Windows specific settings for always on top
-      this.barWindow.setAlwaysOnTop(true, "normal");
+      // Windows specific settings
+      this.barWindow.setAlwaysOnTop(false);
     }
 
     // Set up periodic checks to ensure window stays visible on all platforms
@@ -596,7 +713,6 @@ class AuraApp {
     for (const iconPath of possiblePaths) {
       if (fs.existsSync(iconPath)) {
         trayIcon = nativeImage.createFromPath(iconPath);
-        console.log("Using tray icon from:", iconPath);
         break;
       }
     }
@@ -685,7 +801,6 @@ class AuraApp {
    */
   private processWithAgent(agentId: string): void {
     // This would trigger the recording process for the specified agent
-    console.log(`Processing with agent: ${agentId}`);
     // For now, we'll just show the settings window
     this.showSettingsWindow();
   }
@@ -707,12 +822,7 @@ class AuraApp {
             this.barWindow.show();
           }
 
-          // Re-apply window level
-          if (process.platform === "darwin") {
-            this.barWindow.setAlwaysOnTop(true, "floating", 1);
-          } else {
-            this.barWindow.setAlwaysOnTop(true, "normal");
-          }
+          // Window level check removed - no longer always on top
         } catch (error) {
           console.warn("Failed to maintain window visibility:", error);
         }
@@ -727,7 +837,6 @@ class AuraApp {
     // Request accessibility permissions on macOS
     if (process.platform === "darwin") {
       if (!systemPreferences.isTrustedAccessibilityClient(false)) {
-        console.log("Requesting accessibility permissions...");
         systemPreferences.isTrustedAccessibilityClient(true);
       }
     }
@@ -779,12 +888,10 @@ class AuraApp {
    * Check if the system cursor is in an input state (text field focused)
    */
   private async checkCursorState(): Promise<boolean> {
-    console.log('🔍 [Main] checkCursorState called, platform:', process.platform);
     try {
       // Get the currently focused application
       if (process.platform === 'darwin') {
         // On macOS, we can use AppleScript to check if current app has text input focus
-        console.log('🔍 [Main] Using AppleScript to check cursor state');
         try {
           const script = `
             tell application "System Events"
@@ -800,9 +907,7 @@ class AuraApp {
             end tell
           `;
           const result = execSync(`osascript -e '${script}'`, { encoding: 'utf8' }).trim();
-          console.log('🔍 [Main] AppleScript result:', result);
           const isInputFocused = result === 'true';
-          console.log('🔍 [Main] Input focused:', isInputFocused);
           return isInputFocused;
         } catch (error) {
           console.warn('Failed to check cursor state via AppleScript:', error);
@@ -826,21 +931,16 @@ class AuraApp {
    * Paste text to the currently focused application
    */
   private async pasteText(text: string): Promise<boolean> {
-    console.log('📋 [Main] pasteText called with text length:', text.length);
     try {
       // Copy text to clipboard first
       clipboard.writeText(text);
-      console.log('📋 [Main] Text copied to clipboard');
       
       // Simulate Cmd+V (or Ctrl+V on Windows/Linux)
       if (process.platform === 'darwin') {
-        console.log('📋 [Main] Sending Cmd+V keystroke via AppleScript');
         execSync(`osascript -e 'tell application "System Events" to keystroke "v" using command down'`);
-        console.log('📋 [Main] Keystroke sent successfully');
       } else {
         // For Windows/Linux, we would need additional native modules
         // For now, just copy to clipboard
-        console.log('Text copied to clipboard, manual paste required on this platform');
       }
       
       return true;
@@ -854,14 +954,11 @@ class AuraApp {
    * Show the result window with processing results
    */
   private showResultWindow(): void {
-    console.log('🪟 [Main] showResultWindow called');
     if (this.resultWindow && !this.resultWindow.isDestroyed()) {
-      console.log('🪟 [Main] Result window already exists, focusing');
       this.resultWindow.focus();
       return;
     }
 
-    console.log('🪟 [Main] Creating new result window');
 
     this.resultWindow = new BrowserWindow({
       width: 400,
@@ -894,11 +991,9 @@ class AuraApp {
     }
 
     this.resultWindow.once('ready-to-show', () => {
-      console.log('🪟 [Main] Result window ready to show');
       if (this.resultWindow) {
         this.resultWindow.show();
         this.resultWindow.focus();
-        console.log('🪟 [Main] Result window shown and focused');
 
         // Open DevTools in development mode
         if (process.env.NODE_ENV === "development") {
