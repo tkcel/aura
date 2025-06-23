@@ -258,7 +258,29 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   const startRecording = async () => {
-    if (state.isRecording || !state.selectedAgent) {
+    if (state.isRecording) {
+      return;
+    }
+
+    if (!state.selectedAgent) {
+      dispatch({ type: 'SET_ERROR', payload: 'Please select an agent before recording' });
+      return;
+    }
+
+    if (!state.settings) {
+      dispatch({ type: 'SET_ERROR', payload: 'Settings not loaded' });
+      return;
+    }
+
+    // Check if selected agent exists and is enabled
+    const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
+    if (!agent) {
+      dispatch({ type: 'SET_ERROR', payload: `Selected agent not found: ${state.selectedAgent}` });
+      return;
+    }
+
+    if (!agent.enabled) {
+      dispatch({ type: 'SET_ERROR', payload: `Selected agent is disabled: ${agent.name}` });
       return;
     }
 
@@ -293,13 +315,21 @@ export function AppProvider({ children }: AppProviderProps) {
     // 設定チェック
     const currentState = stateRef.current;
     if (!currentState.settings || !currentState.selectedAgent) {
+      dispatch({ type: 'SET_ERROR', payload: 'No agent selected or settings not available' });
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
     
     const selectedAgentConfig = currentState.settings.agents.find(a => a.id === currentState.selectedAgent);
     if (!selectedAgentConfig) {
-      dispatch({ type: 'SET_ERROR', payload: 'Selected agent not found' });
+      dispatch({ type: 'SET_ERROR', payload: `Selected agent not found: ${currentState.selectedAgent}` });
+      dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+      return;
+    }
+
+    // Check if agent is enabled
+    if (!selectedAgentConfig.enabled) {
+      dispatch({ type: 'SET_ERROR', payload: `Selected agent is disabled: ${selectedAgentConfig.name}` });
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
@@ -503,14 +533,22 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   const processWithAi = async (transcription: string) => {
-    if (!state.selectedAgent || !state.settings) return;
+    if (!state.selectedAgent || !state.settings) {
+      dispatch({ type: 'SET_ERROR', payload: 'No agent selected or settings not available' });
+      return;
+    }
 
     try {
       dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
 
       const agent = state.settings.agents.find(a => a.id === state.selectedAgent);
       if (!agent) {
-        throw new Error('Selected agent not found');
+        throw new Error(`Selected agent not found: ${state.selectedAgent}`);
+      }
+
+      // Check if agent is enabled
+      if (!agent.enabled) {
+        throw new Error(`Selected agent is disabled: ${agent.name}`);
       }
 
       const llmResult = await window.electronAPI.processWithLLM({

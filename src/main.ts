@@ -137,9 +137,19 @@ class AuraApp {
     // Process with LLM only
     ipcMain.handle("process-with-llm", async (_, { text, agentId }) => {
       try {
+        // Update selectedAgent if provided
+        if (agentId && agentId !== this.selectedAgent) {
+          this.setSelectedAgent(agentId);
+        }
+
         const agent = this.settingsService.getAgent(agentId);
         if (!agent) {
           throw new Error(`Agent not found: ${agentId}`);
+        }
+
+        // Check if agent is enabled
+        if (!agent.enabled) {
+          throw new Error(`Agent is disabled: ${agent.name}`);
         }
 
         this.setAppState(AppState.PROCESSING_LLM);
