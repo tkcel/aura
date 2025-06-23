@@ -6,7 +6,6 @@ import { AppState } from '../types';
 import BarWindow from './BarWindow';
 import Header from './Header';
 import HistoryScreen from './HistoryScreen';
-import ModeEditScreen from './ModeEditScreen';
 import ProcessingOverlay from './ProcessingOverlay';
 import ResultWindow from './ResultWindow';
 import SettingsScreen from './SettingsScreen';
@@ -14,7 +13,7 @@ import TabNavigation from './TabNavigation';
 
 function AppContent() {
   const { currentState, error, clearError } = useApp();
-  const [activeTab, setActiveTab] = useState('mode-edit');
+  const [activeTab, setActiveTab] = useState('settings');
   const [windowMode, setWindowMode] = useState<'bar' | 'settings' | 'result'>('settings');
 
   // Detect window mode from URL parameters
@@ -31,8 +30,10 @@ function AppContent() {
   }, []);
 
   const showProcessingOverlay = 
-    currentState === AppState.PROCESSING_STT || 
-    currentState === AppState.PROCESSING_LLM;
+    windowMode !== 'settings' && (
+      currentState === AppState.PROCESSING_STT || 
+      currentState === AppState.PROCESSING_LLM
+    );
 
   // Render bar window for desktop bar mode
   if (windowMode === 'bar') {
@@ -70,21 +71,19 @@ function AppContent() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'mode-edit':
-        return <ModeEditScreen />;
       case 'history':
         return <HistoryScreen />;
       case 'settings':
         return <SettingsScreen />;
       default:
-        return <ModeEditScreen />;
+        return <SettingsScreen />;
     }
   };
 
   // Render full settings window
   return (
     <div className="h-screen flex flex-col">
-      <Header />
+      <Header windowMode={windowMode} />
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       
       <main className="flex-1 overflow-y-auto bg-white/10">

@@ -56,7 +56,15 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   }
 
   const handleInputChange = (field: string, value: string | boolean | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
+    
+    // 埋め込みモードでは自動保存
+    if (embedded) {
+      updateSettings({ [field]: value }).catch(error => {
+        console.error('Failed to auto-save setting:', error);
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -85,22 +93,24 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   };
 
   const content = (
-    <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div className={embedded ? "w-full" : "bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"}>
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            ⚙️ 設定
-          </h2>
-          <button
-            onClick={onClose}
-            className="btn btn-secondary"
-          >
-            ✕
-          </button>
-        </div>
+        {!embedded && (
+          <div className="flex justify-between items-center p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+              ⚙️ 設定
+            </h2>
+            <button
+              onClick={onClose}
+              className="btn btn-secondary"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Body */}
-        <div className="p-6 space-y-6">
+        <div className={embedded ? "space-y-6 [&_h3]:text-white [&_label]:text-gray-300 [&_.text-gray-700]:text-gray-300 [&_.text-gray-800]:text-white [&_.text-gray-600]:text-gray-400 [&_.text-gray-500]:text-gray-500" : "p-6 space-y-6"}>
           {/* API Settings */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -245,14 +255,16 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
         </div>
 
         {/* Footer */}
-        <div className="flex gap-4 justify-end p-6 border-t border-gray-200">
-          <button
-            onClick={handleSave}
-            className="btn btn-primary"
-          >
-            💾 保存
-          </button>
-        </div>
+        {!embedded && (
+          <div className="flex gap-4 justify-end p-6 border-t border-gray-200">
+            <button
+              onClick={handleSave}
+              className="btn btn-primary"
+            >
+              💾 保存
+            </button>
+          </div>
+        )}
       </div>
   );
 

@@ -14,7 +14,12 @@ import { AppState } from '../types';
 export default function SimpleFloatingButton() {
   const { currentState, isRecording, startRecording, stopRecording, settings, selectAgent, selectedAgent } = useApp();
 
-  console.log('BarWindow: currentState', currentState);
+  console.log('🔍 SimpleFloatingButton: currentState=', currentState, 'isRecording=', isRecording);
+
+  // Debug: currentStateの変更を監視
+  useEffect(() => {
+    console.log('🔍 SimpleFloatingButton: currentState changed to:', currentState);
+  }, [currentState]);
 
   // Get selected agent color
   const selectedAgentColor = selectedAgent && settings ? 
@@ -55,20 +60,28 @@ export default function SimpleFloatingButton() {
   };
 
   const getMainButtonIcon = () => {
+    console.log('🔍 getMainButtonIcon called with currentState:', currentState);
     switch (currentState) {
       case AppState.IDLE:
+        console.log('🔍 Showing IDLE icon');
         return <img src={IdleReactor} alt="Idle" className="w-12 h-12" />;
       case AppState.RECORDING:
+        console.log('🔍 Showing RECORDING icon');
         return <img src={RecordingReactor} alt="Recording" className="w-12 h-12" />;
       case AppState.PROCESSING_STT:
+        console.log('🔍 Showing PROCESSING_STT icon');
         return <img src={ProcessingSttReactor} alt="Processing STT" className="w-12 h-12 animate-spin" />;
       case AppState.PROCESSING_LLM:
+        console.log('🔍 Showing PROCESSING_LLM icon');
         return <img src={ProcessingLlmReactor} alt="Processing LLM" className="w-12 h-12 animate-spin" />;
       case AppState.COMPLETED:
+        console.log('🔍 Showing COMPLETED icon');
         return <img src={CompletedReactor} alt="Completed" className="w-12 h-12" />;
       case AppState.ERROR:
+        console.log('🔍 Showing ERROR icon');
         return <img src={ErrorReactor} alt="Error" className="w-12 h-12" />;
       default:
+        console.log('🔍 Showing DEFAULT icon for state:', currentState);
         return <img src={IdleReactor} alt="Default" className="w-12 h-12" />;
     }
   };

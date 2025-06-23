@@ -53,7 +53,7 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
           console.log('🔄 SET_STATE: Skipping duplicate state change:', action.payload);
           return state;
         }
-        console.log('🔄 SET_STATE:', state.currentState, '->', action.payload);
+        console.log('🔍 AppContext SET_STATE:', state.currentState, '->', action.payload);
         
         // 不正な状態遷移を検出
         if ((state.currentState === AppState.RECORDING || 
@@ -191,7 +191,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const setupRecordingService = () => {
     recordingService.setEventHandlers({
       onStateChange: (recordingState: RecordingState) => {
-        console.log('🎤 RecordingState changed to:', recordingState, 'Current AppState:', stateRef.current.currentState);
+        console.log('🔍 RecordingService state changed to:', recordingState, 'Current AppState:', stateRef.current.currentState);
         
         // RecordingService状態変更はisRecordingフラグのみ更新
         // AppStateは独立して管理
@@ -234,7 +234,15 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SET_RECORDING', payload: false });
       },
       onTranscriptionComplete: (result: STTResult, audioFilePath?: string) => {
+        console.log('🎯 Recording service STT completed:', result);
         dispatch({ type: 'SET_STT_RESULT', payload: result });
+        
+        // Notify main process about STT completion
+        console.log('🎯 Notifying main process about STT completion');
+        window.electronAPI.notifyTranscriptionComplete?.(result);
+        
+        // Result window already shown when recording stopped
+        
         // STT完了後は明示的にLLM処理またはIDLEに遷移
         processTranscriptionResult(result, audioFilePath);
       }
@@ -304,6 +312,10 @@ export function AppProvider({ children }: AppProviderProps) {
 
     try {
       await recordingService.stopRecording();
+      
+      // Show result window immediately when recording stops
+      console.log('🎯 Recording stopped, showing result window');
+      window.electronAPI.showResultWindow?.();
     } catch (error) {
       console.error('Stop recording failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -313,6 +325,8 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const processTranscriptionResult = async (sttResult: STTResult, audioFilePath?: string) => {
     console.log('🎯 processTranscriptionResult called, current state:', stateRef.current.currentState);
+    
+    // STT result is already set by setupRecordingService, no need to set again
     
     // 設定チェック
     const currentState = stateRef.current;
@@ -333,12 +347,35 @@ export function AppProvider({ children }: AppProviderProps) {
     // Check if AI processing is enabled for this agent
     console.log('🎯 Agent autoProcessAi:', selectedAgentConfig.autoProcessAi);
     if (!selectedAgentConfig.autoProcessAi) {
-      console.log('🎯 AI processing disabled, setting pending transcription and transitioning to IDLE');
+      console.log('🎯 AI processing disabled, showing result window and transitioning to IDLE');
       dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: sttResult.text });
+      
+      // Result window already shown after STT completion
+      
+      // Add to history (STT only)
+      const duration = recordingService.getRecordingDuration() ?? undefined;
+      const historyEntry: Omit<HistoryEntry, 'id'> = {
+        agentId: currentState.selectedAgent,
+        agentName: selectedAgentConfig.name,
+        transcription: sttResult.text,
+        response: '', // No LLM response
+        timestamp: new Date(),
+        audioFilePath,
+        duration
+      };
+      
+      try {
+        await addHistoryEntry(historyEntry);
+      } catch (error) {
+        console.error('Failed to add history entry:', error);
+      }
+      
       dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
       return;
     }
 
+    // Result window already shown after STT completion
+    
     // LLM処理開始
     console.log('🎯 Starting LLM processing...');
     dispatch({ type: 'SET_STATE', payload: AppState.PROCESSING_LLM });
@@ -375,6 +412,10 @@ export function AppProvider({ children }: AppProviderProps) {
           };
           console.log('🎯 LLM processing completed successfully');
           dispatch({ type: 'SET_LLM_RESULT', payload: result });
+          
+          // Notify main process about LLM result
+          console.log('🎯 Notifying main process about LLM result:', result);
+          window.electronAPI.notifyLlmResult?.(result);
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
 
           // Check if we should auto-paste or show result window
@@ -444,7 +485,13 @@ export function AppProvider({ children }: AppProviderProps) {
   const selectAgent = (agentId: string) => {
     dispatch({ type: 'SELECT_AGENT', payload: agentId });
     dispatch({ type: 'CLEAR_RESULTS' });
-    // Main process sync is handled in reducer
+    
+    // メインプロセスに選択状態を同期
+    try {
+      window.electronAPI.setSelectedAgent?.(agentId);
+    } catch (error) {
+      console.warn('Failed to sync selected agent with main process:', error);
+    }
   };
 
   const copyToClipboard = async (text: string) => {
@@ -592,58 +639,68 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const setupElectronListeners = () => {
     // State changes
-    window.electronAPI.onStateChanged((newState: AppState) => {
+    window.electronAPI.onStateChanged?.((newState: AppState) => {
+      console.log('📡 Received state change from main process:', newState);
       dispatch({ type: 'SET_STATE', payload: newState });
     });
 
     // STT results
-    window.electronAPI.onSttResult((result: STTResult) => {
+    window.electronAPI.onSttResult?.((result: STTResult) => {
+      console.log('🎯 AppContext: Received STT result from IPC:', result);
       dispatch({ type: 'SET_STT_RESULT', payload: result });
     });
 
+    // LLM results
+    window.electronAPI.onLlmResult?.((result: ProcessingResult) => {
+      console.log('🎯 AppContext: Received LLM result from IPC:', result);
+      dispatch({ type: 'SET_LLM_RESULT', payload: result });
+    });
+
     // Processing complete
-    window.electronAPI.onProcessingComplete((result: ProcessingResult) => {
+    window.electronAPI.onProcessingComplete?.((result: ProcessingResult) => {
       dispatch({ type: 'SET_LLM_RESULT', payload: result });
       // Don't clear results immediately, let user see them
     });
 
     // Errors
-    window.electronAPI.onError((error: string) => {
+    window.electronAPI.onError?.((error: string) => {
       dispatch({ type: 'SET_ERROR', payload: error });
     });
 
     // Agent selection from main process (bar window context menu)
-    window.electronAPI.onSelectAgent((agentId: string) => {
+    window.electronAPI.onSelectAgent?.((agentId: string) => {
+      console.log('📡 Received agent selection from main process:', agentId);
       dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
     });
 
-    // App state updates from main process - TEMPORARILY DISABLED
-    // window.electronAPI.onAppStateUpdated?.((appState) => {
-    //   console.log('📡 Received app state update from main:', appState);
-    //   dispatch({ type: 'SET_STATE_FROM_MAIN', payload: appState.currentState });
-    //   dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: appState.isRecording });
-    //   if (appState.selectedAgent !== null) {
-    //     dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: appState.selectedAgent });
-    //   }
-    // });
+    // App state updates from main process
+    window.electronAPI.onAppStateUpdated?.((appState) => {
+      console.log('📡 Received app state update from main:', appState);
+      dispatch({ type: 'SET_STATE_FROM_MAIN', payload: appState.currentState });
+      dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: appState.isRecording });
+      if (appState.selectedAgent !== null) {
+        dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: appState.selectedAgent });
+      }
+    });
 
     // History updates from main process
     window.electronAPI.onHistoryUpdated?.((history) => {
       dispatch({ type: 'SET_HISTORY', payload: history });
     });
 
-    // TEMPORARILY DISABLE MAIN PROCESS LISTENERS
-    // // Selected agent changes from main process
-    // window.electronAPI.onSelectedAgentChanged?.((agentId) => {
-    //   if (agentId) {
-    //     dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
-    //   }
-    // });
+    // Selected agent changes from main process
+    window.electronAPI.onSelectedAgentChanged?.((agentId) => {
+      console.log('📡 Received selected agent change from main:', agentId);
+      if (agentId) {
+        dispatch({ type: 'SELECT_AGENT_FROM_MAIN', payload: agentId });
+      }
+    });
 
-    // // Recording state changes from main process
-    // window.electronAPI.onRecordingStateChanged?.((isRecording) => {
-    //   dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: isRecording });
-    // });
+    // Recording state changes from main process
+    window.electronAPI.onRecordingStateChanged?.((isRecording) => {
+      console.log('📡 Received recording state change from main:', isRecording);
+      dispatch({ type: 'SET_RECORDING_FROM_MAIN', payload: isRecording });
+    });
   };
 
   const contextValue: AppContextValue = {

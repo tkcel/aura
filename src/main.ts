@@ -67,6 +67,12 @@ class AuraApp {
   /** Timer for window visibility checks */
   private visibilityCheckInterval: NodeJS.Timeout | null = null;
 
+  /** Current STT result to share with result window */
+  private currentSttResult: STTResult | null = null;
+
+  /** Current LLM result to share with result window */
+  private currentLlmResult: ProcessingResult | null = null;
+
   constructor() {
     this.settingsService = new SettingsService();
     this.llmService = new LLMService();
@@ -370,6 +376,15 @@ class AuraApp {
         this.resultWindow.close();
       }
     });
+
+    // Handle LLM result from renderer
+    ipcMain.on("notify-llm-result", (_, result: ProcessingResult) => {
+      console.log('🎯 Main: Received LLM result:', result);
+      this.currentLlmResult = result;
+      this.sendToRenderer("llm-result", result);
+      console.log('🎯 Main: Sent LLM result to all windows');
+    });
+
   }
 
   /**
@@ -455,6 +470,12 @@ class AuraApp {
    * @param result - The transcription result
    */
   private handleTranscriptionComplete(result: STTResult): void {
+    console.log('🎯 Main: Received STT result:', result);
+    
+    // Store current STT result
+    this.currentSttResult = result;
+    console.log('🎯 Main: Stored STT result, currentSttResult:', this.currentSttResult);
+    
     // Send transcription result to all windows
     this.sendToRenderer("stt-result", result);
     
@@ -994,6 +1015,17 @@ class AuraApp {
       if (this.resultWindow) {
         this.resultWindow.show();
         this.resultWindow.focus();
+
+        // Send current STT and LLM results to the result window
+        console.log('🎯 Main: Sending results to result window, STT:', this.currentSttResult, 'LLM:', this.currentLlmResult);
+        if (this.currentSttResult) {
+          console.log('🎯 Main: Sending STT result to result window');
+          this.resultWindow.webContents.send('stt-result', this.currentSttResult);
+        }
+        if (this.currentLlmResult) {
+          console.log('🎯 Main: Sending LLM result to result window');
+          this.resultWindow.webContents.send('llm-result', this.currentLlmResult);
+        }
 
         // Open DevTools in development mode
         if (process.env.NODE_ENV === "development") {

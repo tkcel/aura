@@ -85,6 +85,12 @@ const api = {
   closeResultWindow: (): Promise<void> =>
     ipcRenderer.invoke("close-result-window"),
 
+  notifyLlmResult: (result: ProcessingResult): void =>
+    ipcRenderer.send("notify-llm-result", result),
+
+  notifyTranscriptionComplete: (result: STTResult): Promise<void> =>
+    ipcRenderer.invoke("notify-transcription-complete", result),
+
   // Global state management
   getAppState: (): Promise<{
     currentState: AppState;
@@ -103,6 +109,7 @@ const api = {
 
   notifyTranscriptionComplete: (result: STTResult): Promise<void> =>
     ipcRenderer.invoke("notify-transcription-complete", result),
+
 
   // Event listeners
   onStateChanged: (callback: (state: AppState) => void) => {
@@ -133,6 +140,10 @@ const api = {
     ipcRenderer.on("stt-result", (_, result) => callback(result));
   },
 
+  onLlmResult: (callback: (result: ProcessingResult) => void) => {
+    ipcRenderer.on("llm-result", (_, result) => callback(result));
+  },
+
   onProcessingComplete: (callback: (result: ProcessingResult) => void) => {
     ipcRenderer.on("processing-complete", (_, result) => callback(result));
   },
@@ -148,6 +159,7 @@ const api = {
   onSelectAgent: (callback: (agentId: string) => void) => {
     ipcRenderer.on("select-agent", (_, agentId) => callback(agentId));
   },
+
 
   // Remove listeners
   removeAllListeners: (channel: string) => {
