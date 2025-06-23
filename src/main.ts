@@ -156,12 +156,12 @@ class AuraApp {
         return { success: true, result: llmResult };
       } catch (error) {
         this.setAppState(AppState.ERROR);
-        
+
         // Auto return to IDLE after showing error
         setTimeout(() => {
           this.setAppState(AppState.IDLE);
         }, 5000);
-        
+
         const errorMessage = getErrorMessage(error);
         return { success: false, error: errorMessage };
       }
@@ -179,7 +179,6 @@ class AuraApp {
         const buffer = Buffer.from(data);
 
         await fs.writeFile(filePath, buffer);
-
 
         return { filePath };
       } catch (error) {
@@ -202,7 +201,6 @@ class AuraApp {
         this.saveHistory();
         this.sendToRenderer("history-updated", this.history);
 
-
         return id;
       }
     );
@@ -219,8 +217,7 @@ class AuraApp {
       if (entry.audioFilePath && fs.existsSync(entry.audioFilePath)) {
         try {
           await fs.unlink(entry.audioFilePath);
-        } catch (error) {
-        }
+        } catch (error) {}
       }
 
       this.history.splice(index, 1);
@@ -236,8 +233,7 @@ class AuraApp {
         if (entry.audioFilePath && fs.existsSync(entry.audioFilePath)) {
           try {
             await fs.unlink(entry.audioFilePath);
-          } catch (error) {
-            }
+          } catch (error) {}
         }
       }
 
@@ -266,9 +262,12 @@ class AuraApp {
     });
 
     // Recording service state notifications
-    ipcMain.handle("notify-recording-state-change", (_, recordingState: string) => {
-      this.handleRecordingStateChange(recordingState);
-    });
+    ipcMain.handle(
+      "notify-recording-state-change",
+      (_, recordingState: string) => {
+        this.handleRecordingStateChange(recordingState);
+      }
+    );
 
     ipcMain.handle("notify-transcription-complete", (_, result: STTResult) => {
       this.handleTranscriptionComplete(result);
@@ -310,7 +309,7 @@ class AuraApp {
 
       // Add agent selection if available
       if (agents.length > 0) {
-        template.push({ label: "エージェント", enabled: false });
+        template.push({ label: "AGENTS", enabled: false });
         agents.forEach((agent) => {
           template.push({
             label: agent.name,
@@ -326,7 +325,7 @@ class AuraApp {
 
       // Add menu actions
       template.push({
-        label: "設定を開く",
+        label: "OPEN SETTINGS",
         accelerator: SHORTCUTS.OPEN_SETTINGS,
         click: () => {
           this.showSettingsWindow();
@@ -334,7 +333,7 @@ class AuraApp {
       });
 
       template.push({
-        label: "ツールバーを隠す",
+        label: "HIDE TOOLBAR",
         click: () => {
           if (this.barWindow) {
             this.barWindow.hide();
@@ -379,7 +378,6 @@ class AuraApp {
       this.currentLlmResult = result;
       this.sendToRenderer("llm-result", result);
     });
-
   }
 
   /**
@@ -429,27 +427,29 @@ class AuraApp {
    * @param recordingState - The recording service state
    */
   private handleRecordingStateChange(recordingState: string): void {
-    
     switch (recordingState) {
-      case 'RECORDING':
+      case "RECORDING":
         this.setRecordingState(true);
         this.setAppState(AppState.RECORDING);
         break;
-      case 'PROCESSING':
+      case "PROCESSING":
         this.setRecordingState(false);
         this.setAppState(AppState.PROCESSING_STT);
         break;
-      case 'IDLE':
+      case "IDLE":
         this.setRecordingState(false);
         // Only set to IDLE if we were processing
-        if (this.currentState === AppState.PROCESSING_STT || this.currentState === AppState.RECORDING) {
+        if (
+          this.currentState === AppState.PROCESSING_STT ||
+          this.currentState === AppState.RECORDING
+        ) {
           this.setAppState(AppState.IDLE);
         }
         break;
-      case 'ERROR':
+      case "ERROR":
         this.setRecordingState(false);
         this.setAppState(AppState.ERROR);
-        
+
         // Auto return to IDLE after showing error
         setTimeout(() => {
           this.setAppState(AppState.IDLE);
@@ -466,10 +466,10 @@ class AuraApp {
   private handleTranscriptionComplete(result: STTResult): void {
     // Store current STT result
     this.currentSttResult = result;
-    
+
     // Send transcription result to all windows
     this.sendToRenderer("stt-result", result);
-    
+
     // Set state to show transcription is ready for processing
     this.setAppState(AppState.IDLE);
   }
@@ -536,10 +536,11 @@ class AuraApp {
     const bounds = primaryDisplay.bounds;
 
     // Calculate position more precisely for bottom-right corner
-    // Use bounds instead of workAreaSize for more accurate positioning
-    const windowX = bounds.width - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
-    const windowY = bounds.height - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
-
+    // Use workAreaSize to avoid clipping behind dock/taskbar
+    const windowX =
+      screenWidth - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
+    const windowY =
+      screenHeight - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
 
     // Create minimal floating window (just for the button) - position at bottom right
     this.barWindow = new BrowserWindow({
@@ -605,7 +606,6 @@ class AuraApp {
     this.barWindow.once("ready-to-show", () => {
       this.barWindow?.show();
 
-
       // Force window to front on macOS
       if (process.platform === "darwin" && this.barWindow) {
         this.barWindow.focus();
@@ -628,7 +628,6 @@ class AuraApp {
     this.barWindow.on("closed", () => {
       this.barWindow = null;
     });
-
   }
 
   /**
@@ -672,7 +671,6 @@ class AuraApp {
     this.settingsWindow.once("ready-to-show", () => {
       this.settingsWindow?.show();
       this.settingsWindow?.focus();
-
     });
 
     // Handle window closed
@@ -730,7 +728,7 @@ class AuraApp {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: "ツールバーを表示",
+        label: "SHOW TOOLBAR",
         click: () => {
           if (this.barWindow) {
             this.barWindow.show();
@@ -738,14 +736,14 @@ class AuraApp {
         },
       },
       {
-        label: "設定を開く",
+        label: "OPEN SETTINGS",
         click: () => {
           this.showSettingsWindow();
         },
       },
       { type: "separator" },
       {
-        label: "終了",
+        label: "EXIT",
         click: () => {
           app.quit();
         },
@@ -820,8 +818,7 @@ class AuraApp {
           }
 
           // Window level check removed - no longer always on top
-        } catch (error) {
-        }
+        } catch (error) {}
       }
     }, 2000);
   }
@@ -886,7 +883,7 @@ class AuraApp {
   private async checkCursorState(): Promise<boolean> {
     try {
       // Get the currently focused application
-      if (process.platform === 'darwin') {
+      if (process.platform === "darwin") {
         // On macOS, we can use AppleScript to check if current app has text input focus
         try {
           const script = `
@@ -902,13 +899,15 @@ class AuraApp {
               return "false"
             end tell
           `;
-          const result = execSync(`osascript -e '${script}'`, { encoding: 'utf8' }).trim();
-          const isInputFocused = result === 'true';
+          const result = execSync(`osascript -e '${script}'`, {
+            encoding: "utf8",
+          }).trim();
+          const isInputFocused = result === "true";
           return isInputFocused;
         } catch (error) {
           return false;
         }
-      } else if (process.platform === 'win32') {
+      } else if (process.platform === "win32") {
         // On Windows, we can use native APIs to check if current window has text input
         // For now, we'll return false as a fallback
         return false;
@@ -928,15 +927,17 @@ class AuraApp {
     try {
       // Copy text to clipboard first
       clipboard.writeText(text);
-      
+
       // Simulate Cmd+V (or Ctrl+V on Windows/Linux)
-      if (process.platform === 'darwin') {
-        execSync(`osascript -e 'tell application "System Events" to keystroke "v" using command down'`);
+      if (process.platform === "darwin") {
+        execSync(
+          `osascript -e 'tell application "System Events" to keystroke "v" using command down'`
+        );
       } else {
         // For Windows/Linux, we would need additional native modules
         // For now, just copy to clipboard
       }
-      
+
       return true;
     } catch (error) {
       return false;
@@ -952,19 +953,18 @@ class AuraApp {
       return;
     }
 
-
     this.resultWindow = new BrowserWindow({
-      width: 400,
-      height: 300,
+      width: 800,
+      height: 600,
       show: false,
       frame: true,
       resizable: true,
       minimizable: true,
       maximizable: false,
       fullscreenable: false,
-      titleBarStyle: 'default',
+      titleBarStyle: "default",
       webPreferences: {
-        preload: path.join(__dirname, 'preload.js'),
+        preload: path.join(__dirname, "preload.js"),
         contextIsolation: true,
         nodeIntegration: false,
         webSecurity: true,
@@ -972,34 +972,39 @@ class AuraApp {
     });
 
     // Load the result interface
-    if (process.env.NODE_ENV === 'development') {
-      this.resultWindow.loadURL('http://localhost:5173/?mode=result');
+    if (process.env.NODE_ENV === "development") {
+      this.resultWindow.loadURL("http://localhost:5173/?mode=result");
     } else {
       this.resultWindow.loadFile(
-        path.join(__dirname, '../renderer/main_window/index.html'),
+        path.join(__dirname, "../renderer/main_window/index.html"),
         {
-          query: { mode: 'result' },
+          query: { mode: "result" },
         }
       );
     }
 
-    this.resultWindow.once('ready-to-show', () => {
+    this.resultWindow.once("ready-to-show", () => {
       if (this.resultWindow) {
         this.resultWindow.show();
         this.resultWindow.focus();
 
         // Send current STT and LLM results to the result window
         if (this.currentSttResult) {
-          this.resultWindow.webContents.send('stt-result', this.currentSttResult);
+          this.resultWindow.webContents.send(
+            "stt-result",
+            this.currentSttResult
+          );
         }
         if (this.currentLlmResult) {
-          this.resultWindow.webContents.send('llm-result', this.currentLlmResult);
+          this.resultWindow.webContents.send(
+            "llm-result",
+            this.currentLlmResult
+          );
         }
-
       }
     });
 
-    this.resultWindow.on('closed', () => {
+    this.resultWindow.on("closed", () => {
       this.resultWindow = null;
     });
 

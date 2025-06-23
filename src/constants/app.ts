@@ -18,7 +18,7 @@ export const WINDOW_CONFIG = {
   BAR: {
     WIDTH: 60,
     HEIGHT: 60,
-    OFFSET: 10,
+    OFFSET: 0,
   },
   SETTINGS: {
     WIDTH: 800,

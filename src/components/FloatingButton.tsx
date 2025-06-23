@@ -125,17 +125,17 @@ export default function FloatingButton() {
   };
 
   const getMainButtonIcon = () => {
-    if (isRecording) return '⏹';
+    if (isRecording) return '■';
     switch (currentState) {
       case AppState.PROCESSING_STT:
       case AppState.PROCESSING_LLM:
-        return '⚡';
+        return '◐';
       case AppState.COMPLETED:
-        return '✓';
+        return '◉';
       case AppState.ERROR:
-        return '✕';
+        return '○';
       default:
-        return '🎤';
+        return '●';
     }
   };
 
@@ -197,7 +197,7 @@ export default function FloatingButton() {
           {/* Agent selection */}
           {availableAgents.length > 0 && (
             <div className="border-b border-gray-200">
-              <div className="px-3 py-2 text-xs font-medium text-gray-500">エージェント</div>
+              <div className="px-3 py-2 text-xs font-medium text-gray-500">AGENTS</div>
               {availableAgents.map(agent => (
                 <button
                   key={agent.id}
@@ -205,7 +205,7 @@ export default function FloatingButton() {
                   onClick={(e) => handleAgentClick(e, agent.id)}
                 >
                   <span className="text-sm">{agent.name}</span>
-                  {selectedAgent === agent.id && <span className="text-blue-500">✓</span>}
+                  {selectedAgent === agent.id && <span className="text-blue-500">●</span>}
                 </button>
               ))}
             </div>
@@ -216,16 +216,16 @@ export default function FloatingButton() {
             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
             onClick={handleSettingsClick}
           >
-            <span>⚙️</span>
-            <span className="text-sm">設定を開く</span>
+            <span>◐</span>
+            <span className="text-sm">OPEN SETTINGS</span>
           </button>
 
           <button
             className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
             onClick={handleHideClick}
           >
-            <span>👁️</span>
-            <span className="text-sm">ツールバーを隠す</span>
+            <span>○</span>
+            <span className="text-sm">HIDE TOOLBAR</span>
           </button>
         </div>
       )}

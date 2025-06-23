@@ -23,68 +23,73 @@ export default function ResultsSection() {
   };
 
   return (
-    <section className="card p-6">
-      <div className="flex gap-2 mb-4 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('stt')}
-          className={`px-4 py-2 font-medium rounded-t-lg transition-colors ${
-            activeTab === 'stt'
-              ? 'bg-primary-500 text-white'
-              : 'text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          📝 音声認識結果
-        </button>
-        <button
-          onClick={() => setActiveTab('llm')}
-          className={`px-4 py-2 font-medium rounded-t-lg transition-colors ${
-            activeTab === 'llm'
-              ? 'bg-primary-500 text-white'
-              : 'text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          🧠 AI処理結果
-        </button>
+    <section className="hud-border-corner p-6">
+      {/* Tab Navigation */}
+      <div className="border-b border-white/20 mb-6">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('stt')}
+            className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
+          >
+            VOICE RECOGNITION
+          </button>
+          <button
+            onClick={() => setActiveTab('llm')}
+            className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
+          >
+            AI PROCESSING
+          </button>
+        </div>
       </div>
 
-      <div className="min-h-[200px]">
+      <div className="min-h-[250px]">
         {activeTab === 'stt' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">音声認識結果</h3>
+              <h3 className="hud-subtitle">SPEECH-TO-TEXT OUTPUT</h3>
               <button
                 onClick={() => handleCopy('stt')}
                 disabled={!sttResult?.text}
-                className="btn btn-small btn-secondary"
+                className="hud-btn hud-btn-primary"
               >
-                📋 コピー
+                COPY DATA
               </button>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-h-[150px] font-mono text-sm leading-relaxed whitespace-pre-wrap">
-              {sttResult?.text || '音声認識結果がここに表示されます'}
+            <div className="hud-border-corner p-4 bg-black/30 min-h-[180px]">
+              <pre className="hud-text whitespace-pre-wrap break-words selectable">
+                {sttResult?.text || 'AWAITING VOICE INPUT...'}
+              </pre>
             </div>
+            {sttResult && (
+              <div className="mt-3 hud-label text-white/50">
+                LANGUAGE: {sttResult.language?.toUpperCase()} | 
+                CONFIDENCE: {(sttResult.confidence * 100).toFixed(1)}%
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'llm' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">AI処理結果</h3>
+              <h3 className="hud-subtitle">ARTIFICIAL INTELLIGENCE OUTPUT</h3>
               <button
                 onClick={() => handleCopy('llm')}
                 disabled={!llmResult?.llmResult.text}
-                className="btn btn-small btn-secondary"
+                className="hud-btn hud-btn-primary"
               >
-                📋 コピー
+                COPY DATA
               </button>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-h-[150px] font-mono text-sm leading-relaxed whitespace-pre-wrap">
-              {llmResult?.llmResult.text || 'AI処理結果がここに表示されます'}
+            <div className="hud-border-corner p-4 bg-white/5 min-h-[180px]">
+              <pre className="hud-text whitespace-pre-wrap break-words selectable">
+                {llmResult?.llmResult.text || 'AWAITING AI PROCESSING...'}
+              </pre>
             </div>
             {llmResult && (
-              <div className="mt-2 text-xs text-gray-500">
-                使用モデル: {llmResult.llmResult.model} | 
-                トークン使用量: {llmResult.llmResult.tokensUsed}
+              <div className="mt-3 hud-label text-white/50">
+                MODEL: {llmResult.llmResult.model?.toUpperCase()} | 
+                TOKENS: {llmResult.llmResult.tokensUsed}
               </div>
             )}
           </div>

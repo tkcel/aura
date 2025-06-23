@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* JARVIS-inspired design system with monochrome palette */
 @layer base {
   * {
     @apply box-border;
@@ -12,135 +13,331 @@
   }
   
   body {
-    @apply font-sans bg-gradient-primary text-gray-800;
+    @apply font-mono bg-black text-white;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  }
+
+  /* Custom CSS variables for JARVIS theme */
+  :root {
+    --hud-primary: #ffffff;
+    --hud-secondary: #666666;
+    --hud-accent: #cccccc;
+    --hud-bg-primary: #000000;
+    --hud-bg-secondary: #111111;
+    --hud-bg-tertiary: #1a1a1a;
+    --hud-border: #333333;
+    --hud-border-active: #ffffff;
+    --hud-glow: rgba(255, 255, 255, 0.3);
   }
 }
 
 @layer components {
-  .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  /* JARVIS HUD Button System */
+  .hud-btn {
+    @apply relative inline-flex items-center justify-center gap-2 px-4 py-2 
+           font-mono text-sm tracking-wider uppercase transition-all duration-300
+           focus:outline-none border border-white/20 bg-black/80 text-white/90;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
   }
   
-  .btn:hover:not(:disabled) {
-    @apply transform -translate-y-0.5 shadow-lg;
+  .hud-btn::before {
+    content: '';
+    @apply absolute inset-0 border border-white/10 transition-all duration-300;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    z-index: -1;
   }
   
-  .btn:active:not(:disabled) {
-    @apply transform translate-y-0;
+  .hud-btn:hover {
+    @apply text-white border-white/60 bg-white/10;
+    box-shadow: 
+      0 0 20px rgba(255, 255, 255, 0.1),
+      inset 0 0 20px rgba(255, 255, 255, 0.05);
   }
   
-  .btn:disabled {
-    @apply opacity-60 cursor-not-allowed;
+  .hud-btn:hover::before {
+    @apply border-white/30;
+    box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.1);
   }
   
-  .btn-primary {
-    @apply bg-gradient-primary text-white shadow-md hover:shadow-xl;
+  .hud-btn:active {
+    @apply bg-white/20;
   }
   
-  .btn-secondary {
-    @apply bg-white/90 text-gray-700 border border-white/30 hover:bg-white;
-  }
-
-  .btn-danger {
-    @apply bg-red-500 text-white shadow-md hover:bg-red-600 hover:shadow-xl;
+  .hud-btn:disabled {
+    @apply opacity-30 cursor-not-allowed;
   }
   
-  .btn-large {
-    @apply px-8 py-4 text-lg;
+  .hud-btn-primary {
+    @apply border-white/40 bg-white/10 text-white;
   }
   
-  .btn-small {
-    @apply px-2 py-1 text-sm;
-  }
-
-  .btn-xs {
-    @apply px-1 py-0.5 text-xs;
-  }
-
-  .btn-outline {
-    @apply bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50;
-  }
-
-  .btn-sm {
-    @apply px-3 py-1 text-sm;
-  }
-
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg 
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-           transition-colors duration-200;
-  }
-
-  .select {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg 
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-           transition-colors duration-200 bg-white;
+  .hud-btn-primary:hover {
+    @apply border-white bg-white/20;
+    box-shadow: 
+      0 0 30px rgba(255, 255, 255, 0.2),
+      inset 0 0 30px rgba(255, 255, 255, 0.1);
   }
   
-  .status-dot {
-    @apply w-3 h-3 rounded-full transition-all duration-300;
+  .hud-btn-danger {
+    @apply border-white/30 bg-black/90 text-white/70;
   }
   
-  .status-dot.idle {
-    @apply bg-green-400;
+  .hud-btn-danger:hover {
+    @apply border-white/50 bg-white/5 text-white;
   }
   
-  .status-dot.recording {
-    @apply bg-red-500 animate-pulse;
+  /* JARVIS Input System */
+  .hud-input {
+    @apply w-full px-4 py-3 bg-black/80 border border-white/20 text-white 
+           font-mono text-sm tracking-wide placeholder-white/40
+           focus:outline-none focus:border-white/60 focus:bg-black/90
+           transition-all duration-300;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
   }
   
-  .status-dot.processing {
-    @apply bg-blue-500 animate-spin;
+  .hud-input:focus {
+    box-shadow: 
+      0 0 20px rgba(255, 255, 255, 0.1),
+      inset 0 0 20px rgba(255, 255, 255, 0.05);
   }
   
-  .status-dot.error {
-    @apply bg-red-500;
+  .hud-select {
+    @apply w-full px-4 py-3 bg-black/80 border border-white/20 text-white 
+           font-mono text-sm tracking-wide
+           focus:outline-none focus:border-white/60 focus:bg-black/90
+           transition-all duration-300;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
   }
   
-  .card {
-    @apply bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-white/20;
+  .hud-select:focus {
+    box-shadow: 
+      0 0 20px rgba(255, 255, 255, 0.1),
+      inset 0 0 20px rgba(255, 255, 255, 0.05);
   }
   
-  .form-input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg 
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-           transition-colors duration-200;
+  /* JARVIS Panel System */
+  .hud-panel {
+    @apply bg-black/90 border border-white/20 backdrop-blur-sm;
+    background: 
+      linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.8) 100%),
+      radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 50%);
   }
   
-  .form-select {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg 
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-           transition-colors duration-200 bg-white;
+  .hud-panel-header {
+    @apply border-b border-white/20 px-6 py-4 bg-white/5;
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+  }
+  
+  .hud-panel-content {
+    @apply p-6;
+  }
+  
+  /* JARVIS Floating Button */
+  .hud-float-btn {
+    @apply relative flex items-center justify-center w-16 h-16 
+           bg-black/90 border-2 border-white/30 transition-all duration-300;
+    border-radius: 50%;
+    backdrop-filter: blur(10px);
+  }
+  
+  .hud-float-btn::before {
+    content: '';
+    @apply absolute inset-0 border-2 border-white/10 rounded-full
+           transition-all duration-300;
+    z-index: -1;
+  }
+  
+  .hud-float-btn::after {
+    content: '';
+    @apply absolute inset-0 rounded-full transition-all duration-500;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%);
+    z-index: -2;
+  }
+  
+  .hud-float-btn:hover {
+    @apply border-white/60 bg-white/10;
+    box-shadow: 
+      0 0 30px rgba(255, 255, 255, 0.2),
+      0 0 60px rgba(255, 255, 255, 0.1),
+      inset 0 0 30px rgba(255, 255, 255, 0.05);
+  }
+  
+  .hud-float-btn:hover::before {
+    @apply border-white/20;
+  }
+  
+  .hud-float-btn:hover::after {
+    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+  }
+  
+  /* JARVIS Status Indicators */
+  .hud-status-dot {
+    @apply w-3 h-3 rounded-full transition-all duration-300 border border-white/30;
+  }
+  
+  .hud-status-dot.idle {
+    @apply bg-white/20;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  }
+  
+  .hud-status-dot.recording {
+    @apply bg-white/70 animate-pulse;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+  }
+  
+  .hud-status-dot.processing {
+    @apply bg-white/50;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+    animation: hud-pulse 2s ease-in-out infinite;
+  }
+  
+  .hud-status-dot.error {
+    @apply bg-white/80;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+  }
+  
+  /* JARVIS Typography */
+  .hud-title {
+    @apply font-mono text-lg tracking-wider uppercase text-white/90;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  }
+  
+  .hud-subtitle {
+    @apply font-mono text-sm tracking-wide uppercase text-white/60;
+  }
+  
+  .hud-text {
+    @apply font-mono text-sm leading-relaxed text-white/80;
+  }
+  
+  .hud-label {
+    @apply font-mono text-xs tracking-widest uppercase text-white/70;
+  }
+  
+  /* JARVIS Tabs */
+  .hud-tab {
+    @apply px-6 py-3 font-mono text-sm tracking-wider uppercase
+           border-b-2 border-transparent text-white/60
+           transition-all duration-300 hover:text-white/80;
+  }
+  
+  .hud-tab.active {
+    @apply text-white border-white/60;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  }
+  
+  /* JARVIS Geometric Patterns */
+  .hud-border-corner {
+    position: relative;
+  }
+  
+  .hud-border-corner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 20px;
+    border-top: 2px solid rgba(255, 255, 255, 0.3);
+    border-left: 2px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .hud-border-corner::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    border-right: 2px solid rgba(255, 255, 255, 0.3);
   }
 }
 
 @layer utilities {
-  .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  /* JARVIS Animations */
+  @keyframes hud-pulse {
+    0%, 100% { 
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    50% { 
+      opacity: 1;
+      transform: scale(1.1);
+    }
   }
   
-  .glass-strong {
-    @apply bg-white/95 backdrop-blur-md border border-white/20;
+  @keyframes hud-glow {
+    0%, 100% { 
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+    50% { 
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+    }
   }
   
-  /* Remove default focus outline for floating button */
-  .floating-menu button:focus {
-    @apply outline-none;
-  }
-  
-  /* Custom animation for processing state */
-  @keyframes spin {
+  @keyframes hud-spin {
     to { transform: rotate(360deg); }
   }
   
-  .animate-spin {
-    animation: spin 1s linear infinite;
+  .hud-animate-pulse {
+    animation: hud-pulse 2s ease-in-out infinite;
+  }
+  
+  .hud-animate-glow {
+    animation: hud-glow 3s ease-in-out infinite;
+  }
+  
+  .hud-animate-spin {
+    animation: hud-spin 2s linear infinite;
+  }
+  
+  /* JARVIS Grid Patterns */
+  .hud-grid {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  .hud-scanlines {
+    background-image: 
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 255, 255, 0.03) 2px,
+        rgba(255, 255, 255, 0.03) 4px
+      );
   }
   
   /* Disable text selection for cleaner UI */
   body {
     -webkit-user-select: none;
     user-select: none;
+  }
+  
+  /* Allow text selection for content areas */
+  .selectable {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* Custom scrollbar for JARVIS theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
   }
 }

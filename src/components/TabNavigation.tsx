@@ -1,16 +1,16 @@
 import React from 'react';
+import { t } from '../utils/i18n';
 
 interface TabNavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
 
-const tabs = [
-  { id: 'history', label: '履歴', icon: '📋' },
-  { id: 'settings', label: '設定', icon: '🔧' }
-];
-
 export default function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
+  const tabs = [
+    { id: 'history', label: t('tab.history'), icon: '◉' },
+    { id: 'settings', label: t('tab.settings'), icon: '◐' }
+  ];
   return (
     <div className="flex border-b border-gray-200 bg-white/5">
       {tabs.map((tab) => (

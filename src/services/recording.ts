@@ -304,7 +304,7 @@ export class RecordingService {
   ): Promise<STTResult> {
     try {
       if (!apiKey || !apiKey.startsWith("sk-")) {
-        throw new Error("有効なOpenAI APIキーが設定されていません。");
+        throw new Error("Valid OpenAI API key is not configured.");
       }
 
 

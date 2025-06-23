@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-
 import { useApp } from '../context/AppContext';
+import { t } from '../utils/i18n';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -22,6 +22,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
 
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [apiTestResult, setApiTestResult] = useState<'success' | 'failure' | null>(null);
+  const [activeSection, setActiveSection] = useState<'api' | 'voice' | 'system' | 'history'>('api');
 
   useEffect(() => {
     if (settings) {
@@ -40,16 +41,16 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   // Show loading state while settings are being loaded
   if (!settings) {
     const loadingContent = (
-      <div className="bg-white rounded-xl p-8 shadow-2xl">
+      <div className="hud-panel hud-border-corner p-8">
         <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-          <span className="text-gray-700">設定を読み込み中...</span>
+          <div className="hud-animate-spin text-2xl text-white/70">◐</div>
+          <span className="hud-text">{t('settingsModal.loading')}</span>
         </div>
       </div>
     );
     
     return embedded ? loadingContent : (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 hud-scanlines">
         {loadingContent}
       </div>
     );
@@ -62,6 +63,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
     // 埋め込みモードでは自動保存
     if (embedded) {
       updateSettings({ [field]: value }).catch(error => {
+        // Error handling removed for production
       });
     }
   };
@@ -71,6 +73,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
       await updateSettings(formData);
       onClose();
     } catch (error) {
+      // Error handling removed for production
     }
   };
 
@@ -90,180 +93,278 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
     }
   };
 
-  const content = (
-    <div className={embedded ? "w-full" : "bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"}>
-        {/* Header */}
-        {!embedded && (
-          <div className="flex justify-between items-center p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-              ⚙️ 設定
-            </h2>
-            <button
-              onClick={onClose}
-              className="btn btn-secondary"
+  const sections = [
+    { id: 'api', label: t('settingsModal.apiConfig'), icon: '◦' },
+    { id: 'voice', label: t('settingsModal.audioSys'), icon: '◑' },
+    { id: 'system', label: t('settingsModal.coreSys'), icon: '◐' },
+    { id: 'history', label: t('settingsModal.dataArch'), icon: '◉' }
+  ] as const;
+
+  const renderApiSection = () => (
+    <div className="space-y-6">
+      <div className="hud-border-corner p-4">
+        <div className="hud-subtitle mb-4">{t('settingsModal.openaiAuth')}</div>
+        <div className="space-y-4">
+          <div>
+            <label className="hud-label block mb-2">
+              {t('settingsModal.apiKey')}
+            </label>
+            <div className="flex gap-3">
+              <input
+                type="password"
+                value={formData.openaiApiKey}
+                onChange={(e) => handleInputChange('openaiApiKey', e.target.value)}
+                placeholder="sk-proj-..."
+                className="hud-input flex-1"
+              />
+              <button
+                onClick={handleTestApi}
+                disabled={isTestingApi || !formData.openaiApiKey}
+                className={`hud-btn ${
+                  apiTestResult === 'success' 
+                    ? 'hud-btn-primary' 
+                    : apiTestResult === 'failure'
+                    ? 'hud-btn-danger'
+                    : ''
+                }`}
+              >
+                {isTestingApi ? t('settingsModal.testing') : 
+                 apiTestResult === 'success' ? t('settingsModal.verified') :
+                 apiTestResult === 'failure' ? t('settingsModal.failed') :
+                 t('settingsModal.verify')}
+              </button>
+            </div>
+            {apiTestResult && (
+              <div className={`hud-text mt-2 ${
+                apiTestResult === 'success' ? 'text-white/80' : 'text-white/60'
+              }`}>
+                {apiTestResult === 'success' 
+                  ? `● ${t('settingsModal.connectionEstablished')}` 
+                  : `● ${t('settingsModal.connectionFailed')}`}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderVoiceSection = () => (
+    <div className="space-y-6">
+      <div className="hud-border-corner p-4">
+        <div className="hud-subtitle mb-4">{t('settingsModal.voiceRecognition')}</div>
+        <div className="space-y-4">
+          <div>
+            <label className="hud-label block mb-2">
+              {t('settingsModal.languageProtocol')}
+            </label>
+            <select
+              value={formData.language}
+              onChange={(e) => handleInputChange('language', e.target.value)}
+              className="hud-select"
             >
-              ✕
-            </button>
+              <option value="auto">{t('settingsModal.autoDetect')}</option>
+              <option value="en">{t('settingsModal.english')}</option>
+              <option value="ja">{t('settingsModal.japanese')}</option>
+            </select>
           </div>
-        )}
+        </div>
+      </div>
+    </div>
+  );
 
-        {/* Body */}
-        <div className={embedded ? "space-y-6 [&_h3]:text-white [&_label]:text-gray-300 [&_.text-gray-700]:text-gray-300 [&_.text-gray-800]:text-white [&_.text-gray-600]:text-gray-400 [&_.text-gray-500]:text-gray-500" : "p-6 space-y-6"}>
-          {/* API Settings */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              🔑 API設定
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  OpenAI API Key:
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    value={formData.openaiApiKey}
-                    onChange={(e) => handleInputChange('openaiApiKey', e.target.value)}
-                    placeholder="sk-..."
-                    className="form-input flex-1"
-                  />
-                  <button
-                    onClick={handleTestApi}
-                    disabled={isTestingApi || !formData.openaiApiKey}
-                    className={`btn btn-small ${
-                      apiTestResult === 'success' 
-                        ? 'bg-green-500 text-white' 
-                        : apiTestResult === 'failure'
-                        ? 'bg-red-500 text-white'
-                        : 'btn-secondary'
-                    }`}
-                  >
-                    {isTestingApi ? '🔄 テスト中...' : 
-                     apiTestResult === 'success' ? '✅ 成功' :
-                     apiTestResult === 'failure' ? '❌ 失敗' :
-                     '🔄 接続テスト'}
-                  </button>
-                </div>
+  const renderSystemSection = () => (
+    <div className="space-y-6">
+      <div className="hud-border-corner p-4">
+        <div className="hud-subtitle mb-4">{t('settingsModal.systemParameters')}</div>
+        <div className="space-y-4">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={formData.autoStartup}
+                onChange={(e) => handleInputChange('autoStartup', e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                formData.autoStartup ? 'bg-white/20 border-white/60' : 'bg-black/50'
+              }`}>
+                {formData.autoStartup && (
+                  <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                )}
               </div>
             </div>
-          </div>
+            <span className="hud-text">{t('settingsModal.autoStartup')}</span>
+          </label>
 
-          {/* Voice Settings */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              🗣️ 音声設定
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  言語:
-                </label>
-                <select
-                  value={formData.language}
-                  onChange={(e) => handleInputChange('language', e.target.value)}
-                  className="form-select"
-                >
-                  <option value="auto">自動検出</option>
-                  <option value="ja">日本語</option>
-                  <option value="en">English</option>
-                </select>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={formData.systemTray}
+                onChange={(e) => handleInputChange('systemTray', e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                formData.systemTray ? 'bg-white/20 border-white/60' : 'bg-black/50'
+              }`}>
+                {formData.systemTray && (
+                  <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                )}
               </div>
-              
             </div>
-          </div>
+            <span className="hud-text">{t('settingsModal.systemTray')}</span>
+          </label>
 
-          {/* System Settings */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              🎛️ システム設定
-            </h3>
-            <div className="space-y-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.autoStartup}
-                  onChange={(e) => handleInputChange('autoStartup', e.target.checked)}
-                  className="mr-3 w-4 h-4 text-primary-500 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">PC起動時に自動起動</span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.systemTray}
-                  onChange={(e) => handleInputChange('systemTray', e.target.checked)}
-                  className="mr-3 w-4 h-4 text-primary-500 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">システムトレイに常駐</span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.soundNotifications}
-                  onChange={(e) => handleInputChange('soundNotifications', e.target.checked)}
-                  className="mr-3 w-4 h-4 text-primary-500 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">音声通知を有効化</span>
-              </label>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={formData.soundNotifications}
+                onChange={(e) => handleInputChange('soundNotifications', e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                formData.soundNotifications ? 'bg-white/20 border-white/60' : 'bg-black/50'
+              }`}>
+                {formData.soundNotifications && (
+                  <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                )}
+              </div>
             </div>
-          </div>
+            <span className="hud-text">{t('settingsModal.audioNotifications')}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
 
-          {/* History Settings */}
+  const renderHistorySection = () => (
+    <div className="space-y-6">
+      <div className="hud-border-corner p-4">
+        <div className="hud-subtitle mb-4">{t('settingsModal.dataArchival')}</div>
+        <div className="space-y-4">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={formData.saveAudioFiles}
+                onChange={(e) => handleInputChange('saveAudioFiles', e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                formData.saveAudioFiles ? 'bg-white/20 border-white/60' : 'bg-black/50'
+              }`}>
+                {formData.saveAudioFiles && (
+                  <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                )}
+              </div>
+            </div>
+            <span className="hud-text">{t('settingsModal.audioFilePreservation')}</span>
+          </label>
+          {formData.saveAudioFiles && (
+            <div className="hud-text text-white/50 ml-7 text-xs">
+              → {t('settingsModal.storedIn')}
+            </div>
+          )}
+
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              📚 履歴設定
-            </h3>
-            <div className="space-y-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.saveAudioFiles}
-                  onChange={(e) => handleInputChange('saveAudioFiles', e.target.checked)}
-                  className="mr-3 w-4 h-4 text-primary-500 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">音声ファイルを保存する</span>
-              </label>
-              <div className="text-xs text-gray-500 ml-7">
-                有効にすると、録音した音声ファイルが ~/.aura/recordings に保存されます
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  履歴保存件数:
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="10"
-                    max="1000"
-                    value={formData.maxHistoryEntries}
-                    onChange={(e) => handleInputChange('maxHistoryEntries', parseInt(e.target.value) || 100)}
-                    className="form-input w-24"
-                  />
-                  <span className="text-sm text-gray-600">件まで保存</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  指定した件数を超えると、古い履歴から自動削除されます
-                </div>
-              </div>
+            <label className="hud-label block mb-2">
+              {t('settingsModal.historyBufferSize')}
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="10"
+                max="1000"
+                value={formData.maxHistoryEntries}
+                onChange={(e) => handleInputChange('maxHistoryEntries', parseInt(e.target.value) || 100)}
+                className="hud-input w-24"
+              />
+              <span className="hud-text">{t('settingsModal.entriesMax')}</span>
+            </div>
+            <div className="hud-text text-white/50 mt-1 text-xs">
+              → {t('settingsModal.autoPurge')}
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Footer */}
-        {!embedded && (
-          <div className="flex gap-4 justify-end p-6 border-t border-gray-200">
+  const renderSectionContent = () => {
+    switch (activeSection) {
+      case 'api': return renderApiSection();
+      case 'voice': return renderVoiceSection();
+      case 'system': return renderSystemSection();
+      case 'history': return renderHistorySection();
+      default: return renderApiSection();
+    }
+  };
+
+  const content = (
+    <div className={embedded ? "w-full" : "hud-panel w-full max-w-4xl max-h-[90vh] overflow-hidden hud-border-corner"}>
+      {/* Header */}
+      {!embedded && (
+        <div className="hud-panel-header">
+          <div className="flex justify-between items-center">
+            <h2 className="hud-title">{t('settingsModal.title')}</h2>
             <button
-              onClick={handleSave}
-              className="btn btn-primary"
+              onClick={onClose}
+              className="hud-btn text-white/60 hover:text-white"
             >
-              💾 保存
+              {t('common.close')}
             </button>
           </div>
-        )}
+        </div>
+      )}
+
+      <div className="flex h-full">
+        {/* Navigation */}
+        <div className="w-64 border-r border-white/20 hud-panel-content">
+          <div className="hud-subtitle mb-6">{t('settingsModal.modules')}</div>
+          <div className="space-y-2">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`w-full text-left p-3 hud-text transition-all duration-300 ${
+                  activeSection === section.id
+                    ? 'bg-white/10 border-l-2 border-white/60 text-white'
+                    : 'text-white/60 hover:text-white/80 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{section.icon}</span>
+                  <span className="hud-label">{section.label}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 hud-panel-content overflow-y-auto">
+          <div className="max-w-2xl">
+            {renderSectionContent()}
+          </div>
+        </div>
       </div>
+
+      {/* Footer */}
+      {!embedded && (
+        <div className="border-t border-white/20 p-6 bg-white/5">
+          <div className="flex gap-4 justify-end">
+            <button
+              onClick={handleSave}
+              className="hud-btn hud-btn-primary"
+            >
+              {t('settingsModal.saveConfig')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 
   if (embedded) {
@@ -271,7 +372,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 hud-scanlines">
       {content}
     </div>
   );

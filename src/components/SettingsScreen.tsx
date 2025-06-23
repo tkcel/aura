@@ -2,20 +2,30 @@ import React, { useState } from 'react';
 
 import { useApp } from '../context/AppContext';
 import { Agent } from '../types';
+import { t } from '../utils/i18n';
 
 import SettingsModal from './SettingsModal';
 
 export default function SettingsScreen() {
-  const { settings, selectedAgent, selectAgent, updateSettings } = useApp();
+  const { settings, selectedAgent, selectAgent, updateSettings, language, toggleLanguage } = useApp();
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   if (!settings) {
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold text-white mb-6">設定</h2>
-        <p className="text-gray-400">設定を読み込み中...</p>
+      <div className="min-h-screen bg-black text-white hud-scanlines">
+        <div className="hud-panel h-full hud-border-corner">
+          <div className="hud-panel-header">
+            <h2 className="hud-title">{t('settings.title')}</h2>
+          </div>
+          <div className="hud-panel-content">
+            <div className="flex items-center gap-3">
+              <div className="hud-animate-spin text-2xl text-white/70">◐</div>
+              <span className="hud-text">{t('settings.loading')}</span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -33,7 +43,7 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAgent = (agentId: string) => {
-    if (confirm('このエージェントを削除しますか？')) {
+    if (confirm(t('settings.deleteAgentConfirm'))) {
       const updatedAgents = settings.agents.filter(a => a.id !== agentId);
       updateSettings({ ...settings, agents: updatedAgents });
     }
@@ -41,8 +51,8 @@ export default function SettingsScreen() {
 
   const handleCreateNew = () => {
     const newAgent: Agent = {
-      id: `custom-${Date.now()}`,
-      name: '新しいエージェント',
+      id: `agent-${Date.now()}`,
+      name: t('settings.newAgentName'),
       hotkey: '',
       instruction: '',
       model: 'gpt-4',
@@ -56,84 +66,90 @@ export default function SettingsScreen() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-2xl font-bold text-white mb-6">設定</h2>
-      
-      {/* Mode Management Section */}
-      <div className="bg-white/5 rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-white">モード</h3>
-          <button
-            onClick={handleCreateNew}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm"
-          >
-            + 新規作成
-          </button>
+    <div className="min-h-screen bg-black text-white hud-scanlines">
+      <div className="hud-panel h-full hud-border-corner">
+        {/* Header */}
+        <div className="hud-panel-header">
+          <h2 className="hud-title">{t('settings.agentManagement')}</h2>
         </div>
         
-        {/* Current Agent Selection */}
-        <div className="mb-6">
-          <h4 className="text-md font-medium text-white mb-3">現在のモード選択</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {enabledAgents.map((agent) => (
-              <div
-                key={agent.id}
-                className={`
-                  relative p-4 rounded-lg border-2 transition-all duration-200
-                  ${selectedAgent === agent.id 
-                    ? 'border-blue-500 bg-blue-500/20' 
-                    : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-600/50'
-                  }
-                `}
+        <div className="hud-panel-content space-y-8">
+          {/* Agent Management Section */}
+          <div className="hud-border-corner p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="hud-subtitle">{t('settings.agentProtocols')}</h3>
+              <button
+                onClick={handleCreateNew}
+                className="hud-btn hud-btn-primary"
               >
-                <button
-                  onClick={() => selectAgent(agent.id)}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-semibold text-white">
-                      {agent.name}
-                    </div>
-                    <div 
-                      className="w-4 h-4 rounded-full border border-gray-400"
-                      style={{ backgroundColor: agent.color }}
-                    />
+                {t('settings.createNewAgent')}
+              </button>
+            </div>
+            
+            {/* Current Agent Selection */}
+            <div className="mb-6">
+              <h4 className="hud-label mb-4">{t('settings.activeAgentSelection')}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {enabledAgents.map((agent) => (
+                  <div
+                    key={agent.id}
+                    className={`
+                      relative hud-border-corner p-4 border transition-all duration-300 cursor-pointer
+                      ${selectedAgent === agent.id 
+                        ? 'border-white/60 bg-white/10' 
+                        : 'border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/8'
+                      }
+                    `}
+                  >
+                    <button
+                      onClick={() => selectAgent(agent.id)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="hud-text font-semibold">
+                          {agent.name.toUpperCase()}
+                        </div>
+                        <div 
+                          className="w-3 h-3 hud-status-dot idle"
+                          style={{ backgroundColor: agent.color }}
+                        />
+                      </div>
+                      <div className="hud-label text-white/60">
+                        {agent.hotkey || t('settings.noHotkey')}
+                      </div>
+                      <div className="hud-label text-white/40 mt-1">
+                        {t('settings.autoAiLabel')}: {agent.autoProcessAi ? t('settings.autoAiEnabled') : t('settings.autoAiDisabled')}
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingAgent(agent);
+                        setIsCreating(false);
+                      }}
+                      className="absolute bottom-2 right-2 hud-btn text-xs"
+                      title={t('settings.edit')}
+                    >
+                      {t('settings.edit')}
+                    </button>
                   </div>
-                  <div className="text-sm opacity-70 text-gray-300">
-                    {agent.hotkey}
-                  </div>
-                  <div className="text-xs opacity-50 mt-1 text-gray-400">
-                    AI自動処理: {agent.autoProcessAi ? '有効' : '無効'}
-                  </div>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingAgent(agent);
-                    setIsCreating(false);
-                  }}
-                  className="absolute bottom-2 right-2 p-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs transition-colors"
-                  title="編集"
-                >
-                  ✏️
-                </button>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
 
-      </div>
-
-      {/* Application Settings */}
-      <div className="bg-white/5 rounded-lg p-6">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-white">アプリケーション設定</h3>
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
-          >
-            設定を開く
-          </button>
+          {/* Application Settings */}
+          <div className="hud-border-corner p-6">
+            <div className="flex justify-between items-center">
+              <h3 className="hud-subtitle">{t('settings.coreSystemConfig')}</h3>
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="hud-btn"
+              >
+                {t('settings.openConfiguration')}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -181,161 +197,209 @@ function AgentEditModal({ agent, isCreating, onSave, onDelete, onCancel }: Agent
   };
 
   const handleDelete = () => {
-    if (onDelete && confirm('このエージェントを削除しますか？')) {
+    if (onDelete && confirm(t('agentEdit.deleteConfirm'))) {
       onDelete(agent.id);
       onCancel();
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-xl font-bold text-white mb-4">
-          {isCreating ? 'エージェントを作成' : 'エージェントを編集'}
-        </h3>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              名前
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              ホットキー
-            </label>
-            <input
-              type="text"
-              value={formData.hotkey}
-              onChange={(e) => handleChange('hotkey', e.target.value)}
-              placeholder="例: CommandOrControl+Alt+1"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              指示文
-            </label>
-            <textarea
-              value={formData.instruction}
-              onChange={(e) => handleChange('instruction', e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-1">
-                モデル
-              </label>
-              <select
-                value={formData.model}
-                onChange={(e) => handleChange('model', e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="gpt-4">GPT-4</option>
-                <option value="gpt-4-vision-preview">GPT-4 Vision</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-1">
-                温度 ({formData.temperature})
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={formData.temperature}
-                onChange={(e) => handleChange('temperature', parseFloat(e.target.value))}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1">
-              色
-            </label>
-            <div className="flex items-center space-x-3">
-              <input
-                type="color"
-                value={formData.color}
-                onChange={(e) => handleChange('color', e.target.value)}
-                className="w-12 h-8 rounded border border-gray-600 cursor-pointer"
-              />
-              <div 
-                className="w-6 h-6 rounded-full border border-gray-500"
-                style={{ backgroundColor: formData.color }}
-              />
-              <span className="text-sm text-gray-300">{formData.color}</span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.enabled}
-                  onChange={(e) => handleChange('enabled', e.target.checked)}
-                  className="mr-2"
-                />
-                <span className="text-white">有効にする</span>
-              </label>
-            </div>
-            
-            <div className="flex items-center">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.autoProcessAi}
-                  onChange={(e) => handleChange('autoProcessAi', e.target.checked)}
-                  className="mr-2"
-                />
-                <span className="text-white">音声認識後にAI処理を自動実行</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="flex space-x-3 pt-4">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 hud-scanlines">
+      <div className="hud-panel w-full max-w-3xl max-h-[90vh] overflow-hidden hud-border-corner">
+        {/* Header */}
+        <div className="hud-panel-header">
+          <div className="flex justify-between items-center">
+            <h3 className="hud-title">
+              {isCreating ? t('agentEdit.creationTitle') : t('agentEdit.modificationTitle')}
+            </h3>
             <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              onClick={onCancel}
+              className="hud-btn text-white/60 hover:text-white"
             >
-              保存
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
+        
+        <div className="hud-panel-content overflow-y-auto">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Information */}
+            <div className="hud-border-corner p-4">
+              <div className="hud-subtitle mb-4">{t('agentEdit.identification')}</div>
+              <div className="space-y-4">
+                <div>
+                  <label className="hud-label block mb-2">
+                    {t('agentEdit.agentName')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    className="hud-input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="hud-label block mb-2">
+                    {t('agentEdit.hotkeySequence')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.hotkey}
+                    onChange={(e) => handleChange('hotkey', e.target.value)}
+                    placeholder="CommandOrControl+Alt+1"
+                    className="hud-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* AI Configuration */}
+            <div className="hud-border-corner p-4">
+              <div className="hud-subtitle mb-4">{t('agentEdit.aiParameters')}</div>
+              <div className="space-y-4">
+                <div>
+                  <label className="hud-label block mb-2">
+                    {t('agentEdit.instructionProtocol')}
+                  </label>
+                  <textarea
+                    value={formData.instruction}
+                    onChange={(e) => handleChange('instruction', e.target.value)}
+                    rows={6}
+                    className="hud-input min-h-[120px] resize-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="hud-label block mb-2">
+                      {t('agentEdit.aiModel')}
+                    </label>
+                    <select
+                      value={formData.model}
+                      onChange={(e) => handleChange('model', e.target.value)}
+                      className="hud-select"
+                    >
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-vision-preview">GPT-4 VISION</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 TURBO</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="hud-label block mb-2">
+                      {t('agentEdit.temperature')}: {formData.temperature}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={formData.temperature}
+                      onChange={(e) => handleChange('temperature', parseFloat(e.target.value))}
+                      className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual Configuration */}
+            <div className="hud-border-corner p-4">
+              <div className="hud-subtitle mb-4">{t('agentEdit.visualParameters')}</div>
+              <div>
+                <label className="hud-label block mb-2">
+                  {t('agentEdit.agentColor')}
+                </label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="color"
+                    value={formData.color}
+                    onChange={(e) => handleChange('color', e.target.value)}
+                    className="w-12 h-8 border border-white/30 bg-black cursor-pointer"
+                  />
+                  <div 
+                    className="w-6 h-6 hud-status-dot idle"
+                    style={{ backgroundColor: formData.color }}
+                  />
+                  <span className="hud-text">{formData.color.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* System Settings */}
+            <div className="hud-border-corner p-4">
+              <div className="hud-subtitle mb-4">{t('agentEdit.systemSettings')}</div>
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={formData.enabled}
+                      onChange={(e) => handleChange('enabled', e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                      formData.enabled ? 'bg-white/20 border-white/60' : 'bg-black/50'
+                    }`}>
+                      {formData.enabled && (
+                        <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="hud-text">{t('agentEdit.enableAgent')}</span>
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={formData.autoProcessAi}
+                      onChange={(e) => handleChange('autoProcessAi', e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                      formData.autoProcessAi ? 'bg-white/20 border-white/60' : 'bg-black/50'
+                    }`}>
+                      {formData.autoProcessAi && (
+                        <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="hud-text">{t('agentEdit.autoProcessAi')}</span>
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/20 p-6 bg-white/5">
+          <div className="flex gap-4">
+            <button
+              onClick={handleSubmit}
+              className="hud-btn hud-btn-primary flex-1"
+            >
+              {t('agentEdit.saveAgent')}
             </button>
             {!isCreating && onDelete && (
               <button
-                type="button"
                 onClick={handleDelete}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="hud-btn hud-btn-danger"
               >
-                削除
+                {t('agentEdit.deleteAgent')}
               </button>
             )}
             <button
-              type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              className="hud-btn flex-1"
             >
-              キャンセル
+              {t('common.cancel')}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

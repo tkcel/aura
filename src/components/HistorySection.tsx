@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 import { HistoryEntry } from '../types';
+import { t } from '../utils/i18n';
+import { useApp } from '../context/AppContext';
 
 interface HistorySectionProps {
   history: HistoryEntry[];
@@ -17,6 +19,7 @@ export default function HistorySection({
   onPlayAudio, 
   onCopyText 
 }: HistorySectionProps) {
+  const { language } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredHistory, setFilteredHistory] = useState<HistoryEntry[]>(history);
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
@@ -50,7 +53,7 @@ export default function HistorySection({
     });
 
   const formatTimestamp = (timestamp: Date) => {
-    return new Intl.DateTimeFormat('ja-JP', {
+    return new Intl.DateTimeFormat(language === 'ja' ? 'ja-JP' : 'en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -62,13 +65,13 @@ export default function HistorySection({
 
   const formatDuration = (duration?: number) => {
     if (!duration) return '';
-    if (duration < 60) return `${duration}秒`;
+    if (duration < 60) return `${duration}S`;
     const minutes = Math.floor(duration / 60);
     const seconds = duration % 60;
-    return `${minutes}分${seconds}秒`;
+    return `${minutes}M${seconds}S`;
   };
 
-  const truncateText = (text: string, maxLength = 100) => {
+  const truncateText = (text: string, maxLength = 150) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
   };
@@ -76,17 +79,19 @@ export default function HistorySection({
   if (!isExpanded) {
     return (
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            📚 履歴
-            <span className="text-sm text-gray-600">({history.length}件)</span>
-          </h2>
-          <button
-            onClick={() => setIsExpanded(true)}
-            className="btn btn-outline btn-sm"
-          >
-            履歴を表示
-          </button>
+        <div className="hud-border-corner p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="hud-subtitle">DATA ARCHIVE</h2>
+              <span className="hud-label">({history.length} ENTRIES)</span>
+            </div>
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="hud-btn"
+            >
+              EXPAND ARCHIVE
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -94,158 +99,175 @@ export default function HistorySection({
 
   return (
     <section className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          📚 履歴
-          <span className="text-sm text-gray-600">({filteredHistory.length}/{history.length}件)</span>
-        </h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="btn btn-outline btn-sm"
-          >
-            非表示
-          </button>
-          {history.length > 0 && (
-            <button
-              onClick={onClearHistory}
-              className="btn btn-danger btn-sm"
-              title="全履歴を削除"
-            >
-              🗑️ 全削除
-            </button>
-          )}
-        </div>
-      </div>
-
-      {history.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <p>📝 まだ履歴がありません</p>
-          <p className="text-sm">録音を開始すると、ここに履歴が表示されます</p>
-        </div>
-      ) : (
-        <>
-          {/* Search and Filter Controls */}
-          <div className="mb-4 space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="履歴を検索..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input flex-1"
-              />
-              <select
-                value={selectedAgent}
-                onChange={(e) => setSelectedAgent(e.target.value)}
-                className="select"
-              >
-                <option value="all">全エージェント</option>
-                {uniqueAgents.map(agent => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <div className="hud-border-corner p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="hud-subtitle">DATA ARCHIVE SYSTEM</h2>
+            <span className="hud-label">({filteredHistory.length}/{history.length} ENTRIES)</span>
           </div>
-
-          {/* History List */}
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {filteredHistory.length === 0 ? (
-              <div className="text-center py-4 text-gray-500">
-                <p>🔍 検索条件に一致する履歴がありません</p>
-              </div>
-            ) : (
-              filteredHistory.map((entry) => (
-                <div key={entry.id} className="border rounded-lg p-4 bg-white shadow-sm">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                        {entry.agentName}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {formatTimestamp(entry.timestamp)}
-                      </span>
-                      {entry.duration && (
-                        <span className="text-sm text-gray-500">
-                          ({formatDuration(entry.duration)})
-                        </span>
-                      )}
-                      {entry.audioFilePath && (
-                        <span className="text-sm text-green-600" title="音声ファイル保存済み">
-                          🎵
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {entry.audioFilePath && (
-                        <button
-                          onClick={() => entry.audioFilePath && onPlayAudio(entry.audioFilePath)}
-                          className="btn btn-outline btn-xs"
-                          title="音声を再生"
-                        >
-                          ▶️
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onCopyText(entry.response)}
-                        className="btn btn-outline btn-xs"
-                        title="回答をコピー"
-                      >
-                        📋
-                      </button>
-                      <button
-                        onClick={() => onDeleteEntry(entry.id)}
-                        className="btn btn-danger btn-xs"
-                        title="削除"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="space-y-2">
-                    <div>
-                      <div className="text-sm font-medium text-gray-700 mb-1">📝 認識結果:</div>
-                      <div className="text-sm bg-gray-50 p-2 rounded">
-                        {truncateText(entry.transcription)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-700 mb-1">🤖 回答:</div>
-                      <div className="text-sm bg-blue-50 p-2 rounded">
-                        {truncateText(entry.response)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="hud-btn"
+            >
+              COLLAPSE
+            </button>
+            {history.length > 0 && (
+              <button
+                onClick={onClearHistory}
+                className="hud-btn hud-btn-danger"
+                title="PURGE ALL DATA"
+              >
+                PURGE ALL
+              </button>
             )}
           </div>
+        </div>
 
-          {/* Statistics */}
-          {history.length > 0 && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-600 grid grid-cols-2 gap-2">
-                <div>📊 総件数: {history.length}件</div>
-                <div>🎵 音声付き: {history.filter(e => e.audioFilePath).length}件</div>
-                <div>📅 最新: {history[0] ? formatTimestamp(history[0].timestamp) : '-'}</div>
-                <div>🕒 平均時間: {
-                  (() => {
-                    const withDuration = history.filter(e => e.duration);
-                    if (withDuration.length === 0) return '-';
-                    const avg = withDuration.reduce((sum, e) => sum + (e.duration || 0), 0) / withDuration.length;
-                    return formatDuration(Math.round(avg));
-                  })()
-                }</div>
+        {history.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-4 text-white/30">◦</div>
+            <p className="hud-text text-white/60">NO DATA ARCHIVED</p>
+            <p className="hud-label text-white/40 mt-2">BEGIN RECORDING TO POPULATE ARCHIVE</p>
+          </div>
+        ) : (
+          <>
+            {/* Search and Filter Controls */}
+            <div className="mb-6 space-y-4">
+              <div className="flex gap-4">
+                <input
+                  type="text"
+                  placeholder="SEARCH ARCHIVE..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="hud-input flex-1"
+                />
+                <select
+                  value={selectedAgent}
+                  onChange={(e) => setSelectedAgent(e.target.value)}
+                  className="hud-select w-48"
+                >
+                  <option value="all">ALL AGENTS</option>
+                  {uniqueAgents.map(agent => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          )}
-        </>
-      )}
+
+            {/* History List */}
+            <div className="space-y-4 max-h-[500px] overflow-y-auto">
+              {filteredHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-2xl mb-2 text-white/30">◐</div>
+                  <p className="hud-text text-white/60">NO MATCHING RECORDS</p>
+                </div>
+              ) : (
+                filteredHistory.map((entry) => (
+                  <div key={entry.id} className="hud-border-corner p-4 bg-white/5 border border-white/20">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <span className="hud-label bg-white/10 px-2 py-1">
+                          {entry.agentName.toUpperCase()}
+                        </span>
+                        <span className="hud-label text-white/60">
+                          {formatTimestamp(entry.timestamp)}
+                        </span>
+                        {entry.duration && (
+                          <span className="hud-label text-white/60">
+                            ({formatDuration(entry.duration)})
+                          </span>
+                        )}
+                        {entry.audioFilePath && (
+                          <div className="w-2 h-2 hud-status-dot recording" title="AUDIO ARCHIVED" />
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {entry.audioFilePath && (
+                          <button
+                            onClick={() => entry.audioFilePath && onPlayAudio(entry.audioFilePath)}
+                            className="hud-btn text-xs"
+                            title="PLAY AUDIO"
+                          >
+                            PLAY
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onCopyText(entry.response)}
+                          className="hud-btn text-xs"
+                          title="COPY RESPONSE"
+                        >
+                          COPY
+                        </button>
+                        <button
+                          onClick={() => onDeleteEntry(entry.id)}
+                          className="hud-btn hud-btn-danger text-xs"
+                          title="DELETE ENTRY"
+                        >
+                          DELETE
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="space-y-4">
+                      <div>
+                        <div className="hud-label mb-2">VOICE INPUT:</div>
+                        <div className="hud-text bg-black/30 p-3 border border-white/10 selectable">
+                          {truncateText(entry.transcription)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="hud-label mb-2">AI RESPONSE:</div>
+                        <div className="hud-text bg-white/5 p-3 border border-white/20 selectable">
+                          {truncateText(entry.response)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Statistics */}
+            {history.length > 0 && (
+              <div className="mt-6 hud-border-corner p-4 bg-white/5">
+                <div className="hud-label mb-3">ARCHIVE STATISTICS</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="hud-text text-white/80">{history.length}</div>
+                    <div className="hud-label text-white/50">TOTAL ENTRIES</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="hud-text text-white/80">{history.filter(e => e.audioFilePath).length}</div>
+                    <div className="hud-label text-white/50">WITH AUDIO</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="hud-text text-white/80">
+                      {history[0] ? formatTimestamp(history[0].timestamp).split(' ')[0] : '-'}
+                    </div>
+                    <div className="hud-label text-white/50">LATEST</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="hud-text text-white/80">{
+                      (() => {
+                        const withDuration = history.filter(e => e.duration);
+                        if (withDuration.length === 0) return '-';
+                        const avg = withDuration.reduce((sum, e) => sum + (e.duration || 0), 0) / withDuration.length;
+                        return formatDuration(Math.round(avg));
+                      })()
+                    }</div>
+                    <div className="hud-label text-white/50">AVG DURATION</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

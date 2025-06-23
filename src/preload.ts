@@ -107,10 +107,6 @@ const api = {
   notifyRecordingStateChange: (recordingState: string): Promise<void> =>
     ipcRenderer.invoke("notify-recording-state-change", recordingState),
 
-  notifyTranscriptionComplete: (result: STTResult): Promise<void> =>
-    ipcRenderer.invoke("notify-transcription-complete", result),
-
-
   // Event listeners
   onStateChanged: (callback: (state: AppState) => void) => {
     ipcRenderer.on("state-changed", (_, state) => callback(state));

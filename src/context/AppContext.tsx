@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode, use
 
 import { RecordingService, RecordingState } from '../services/recording';
 import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult } from '../types';
+import { Language, initializeLanguage, setLanguage, getCurrentLanguage } from '../utils/i18n';
 
 interface AppContextState {
   settings: AppSettings | null;
@@ -13,6 +14,7 @@ interface AppContextState {
   error: string | null;
   history: HistoryEntry[];
   pendingTranscription: string | null;
+  language: Language;
 }
 
 type AppAction =
@@ -29,7 +31,8 @@ type AppAction =
   | { type: 'SET_PENDING_TRANSCRIPTION'; payload: string | null }
   | { type: 'SET_STATE_FROM_MAIN'; payload: AppState }
   | { type: 'SELECT_AGENT_FROM_MAIN'; payload: string }
-  | { type: 'SET_RECORDING_FROM_MAIN'; payload: boolean };
+  | { type: 'SET_RECORDING_FROM_MAIN'; payload: boolean }
+  | { type: 'SET_LANGUAGE'; payload: Language };
 
 const initialState: AppContextState = {
   settings: null,
@@ -41,6 +44,7 @@ const initialState: AppContextState = {
   error: null,
   history: [],
   pendingTranscription: null,
+  language: 'en',
 };
 
 function appReducer(state: AppContextState, action: AppAction): AppContextState {
@@ -79,6 +83,8 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
         return { ...state, selectedAgent: action.payload };
       case 'SET_RECORDING_FROM_MAIN':
         return { ...state, isRecording: action.payload };
+      case 'SET_LANGUAGE':
+        return { ...state, language: action.payload };
       default:
         return state;
     }
@@ -103,6 +109,8 @@ interface AppContextValue extends AppContextState {
   playAudioFile: (filePath: string) => void;
   processWithAi: (transcription: string) => Promise<void>;
   skipAiProcessing: () => void;
+  changeLanguage: (lang: Language) => void;
+  toggleLanguage: () => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -131,6 +139,10 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Initialize app and load settings
   useEffect(() => {
+    // Initialize language first
+    const detectedLang = initializeLanguage();
+    dispatch({ type: 'SET_LANGUAGE', payload: detectedLang });
+    
     loadSettings();
     loadHistory();
     loadInitialState();
@@ -625,6 +637,22 @@ export function AppProvider({ children }: AppProviderProps) {
     });
   };
 
+  const changeLanguage = (lang: Language) => {
+    setLanguage(lang);
+    dispatch({ type: 'SET_LANGUAGE', payload: lang });
+    
+    try {
+      localStorage.setItem('aura-language', lang);
+    } catch (error) {
+      console.warn('Failed to save language preference:', error);
+    }
+  };
+
+  const toggleLanguage = () => {
+    const newLang: Language = state.language === 'en' ? 'ja' : 'en';
+    changeLanguage(newLang);
+  };
+
   const contextValue: AppContextValue = {
     ...state,
     dispatch,
@@ -641,6 +669,8 @@ export function AppProvider({ children }: AppProviderProps) {
     playAudioFile,
     processWithAi,
     skipAiProcessing,
+    changeLanguage,
+    toggleLanguage,
   };
 
   return (
