@@ -15,16 +15,18 @@ export default function ResultWindow() {
   const isProcessingLLM = currentState === AppState.PROCESSING_LLM;
   const isProcessing = isProcessingSTT || isProcessingLLM;
 
-  // Get current agent information
-  const currentAgent = selectedAgent && settings ? 
-    settings.agents.find(a => a.id === selectedAgent) : null;
-  
-  // Get agent from LLM result if available
-  const resultAgent = llmResult && settings ? 
+  // Get agent that actually processed the result (use agentId if available)
+  const resultAgent = llmResult?.agentId && settings ? 
     settings.agents.find(a => a.id === llmResult.agentId) : null;
   
-  // Current timestamp for display - use locale based on current language
-  const currentTime = new Date().toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US');
+  // Only use currently selected agent if no agentId exists
+  const currentAgent = !llmResult?.agentId && selectedAgent && settings ? 
+    settings.agents.find(a => a.id === selectedAgent) : null;
+  
+  // Use the result timestamp if available, otherwise current time
+  const displayTime = llmResult?.timestamp ? 
+    new Date(llmResult.timestamp).toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US') :
+    new Date().toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US');
 
   // Auto-switch tabs based on processing state
   React.useEffect(() => {
@@ -39,6 +41,15 @@ export default function ResultWindow() {
     const text = type === 'stt' ? sttResult?.text : llmResult?.llmResult?.text;
     if (text) {
       copyToClipboard(text);
+    }
+  };
+
+  const handleCopyAll = () => {
+    const sttText = sttResult?.text || '';
+    const llmText = llmResult?.llmResult?.text || '';
+    if (sttText || llmText) {
+      const combinedText = `音声認識: ${sttText}\n\nAI処理: ${llmText}`;
+      copyToClipboard(combinedText);
     }
   };
 
@@ -70,20 +81,20 @@ export default function ResultWindow() {
               <div>
                 <h2 className="hud-title">{t('results.title')}</h2>
                 <div className="hud-subtitle mt-1">
-                  {resultAgent && (
+                  {llmResult?.agentId && resultAgent && (
                     <span className="inline-flex items-center gap-2">
                       {t('results.agent')}: {resultAgent.name.toUpperCase()}
                       <div className="w-2 h-2 hud-status-dot idle" />
                     </span>
                   )}
-                  {currentAgent && !resultAgent && (
+                  {!llmResult?.agentId && currentAgent && (
                     <span className="inline-flex items-center gap-2">
                       {t('results.agent')}: {currentAgent.name.toUpperCase()}
                       <div className="w-2 h-2 hud-status-dot idle" />
                     </span>
                   )}
                   {(resultAgent || currentAgent) && <span className="mx-3">|</span>}
-                  <span>{t('results.timestamp')}: {llmResult?.timestamp ? new Date(llmResult.timestamp).toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US') : currentTime}</span>
+                  <span>{t('results.timestamp')}: {displayTime}</span>
                 </div>
               </div>
             </div>
@@ -98,19 +109,30 @@ export default function ResultWindow() {
         
         {/* Tab Navigation */}
         <div className="border-b border-white/20 px-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('stt')}
-              className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
-            >
-              {t('results.voiceTab')}
-            </button>
-            <button
-              onClick={() => setActiveTab('llm')}
-              className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
-            >
-              {t('results.aiTab')}
-            </button>
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('stt')}
+                className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
+              >
+                {t('results.voiceTab')}
+              </button>
+              <button
+                onClick={() => setActiveTab('llm')}
+                className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
+              >
+                {t('results.aiTab')}
+              </button>
+            </div>
+            {(sttResult?.text || llmResult?.llmResult?.text) && (
+              <button
+                onClick={handleCopyAll}
+                className="hud-btn hud-btn-primary"
+                title="COPY ALL CONTENT"
+              >
+                {t('results.copyAll') || 'COPY ALL'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -200,11 +222,20 @@ export default function ResultWindow() {
           <div className="border-t border-white/20 px-6 py-4 bg-white/5">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-white/60">
               {/* Agent Info */}
-              {(resultAgent || currentAgent) && (
+              {llmResult?.agentId && resultAgent && (
                 <div className="hud-label text-center">
                   <div className="text-white/40 text-xs mb-1">{t('results.agent')}</div>
                   <div className="flex items-center justify-center gap-2">
-                    <span className="text-white/80">{(resultAgent || currentAgent)?.name.toUpperCase()}</span>
+                    <span className="text-white/80">{resultAgent.name.toUpperCase()}</span>
+                    <div className="w-2 h-2 hud-status-dot idle" />
+                  </div>
+                </div>
+              )}
+              {!llmResult?.agentId && currentAgent && (
+                <div className="hud-label text-center">
+                  <div className="text-white/40 text-xs mb-1">{t('results.agent')}</div>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-white/80">{currentAgent.name.toUpperCase()}</span>
                     <div className="w-2 h-2 hud-status-dot idle" />
                   </div>
                 </div>
@@ -235,7 +266,7 @@ export default function ResultWindow() {
                 <div className="hud-label text-center">
                   <div className="text-white/40 text-xs mb-1">{t('results.completion')}</div>
                   <div className="text-white/80 text-xs">
-                    {new Date(llmResult.timestamp).toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US')}
+                    {displayTime}
                   </div>
                 </div>
               )}

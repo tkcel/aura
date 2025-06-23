@@ -195,11 +195,25 @@ export default function HistorySection({
                           </button>
                         )}
                         <button
+                          onClick={() => onCopyText(entry.transcription)}
+                          className="hud-btn text-xs"
+                          title="COPY TRANSCRIPTION"
+                        >
+                          COPY STT
+                        </button>
+                        <button
                           onClick={() => onCopyText(entry.response)}
                           className="hud-btn text-xs"
-                          title="COPY RESPONSE"
+                          title="COPY AI RESPONSE"
                         >
-                          COPY
+                          COPY AI
+                        </button>
+                        <button
+                          onClick={() => onCopyText(`音声認識: ${entry.transcription}\n\nAI処理: ${entry.response}`)}
+                          className="hud-btn text-xs"
+                          title="COPY ALL CONTENT"
+                        >
+                          COPY ALL
                         </button>
                         <button
                           onClick={() => onDeleteEntry(entry.id)}

@@ -22,23 +22,43 @@ export default function ResultsSection() {
     }
   };
 
+  const handleCopyAll = () => {
+    const sttText = sttResult?.text || '';
+    const llmText = llmResult?.llmResult.text || '';
+    if (sttText || llmText) {
+      const combinedText = `音声認識: ${sttText}\n\nAI処理: ${llmText}`;
+      copyToClipboard(combinedText);
+    }
+  };
+
   return (
     <section className="hud-border-corner p-6">
       {/* Tab Navigation */}
       <div className="border-b border-white/20 mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('stt')}
-            className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
-          >
-            VOICE RECOGNITION
-          </button>
-          <button
-            onClick={() => setActiveTab('llm')}
-            className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
-          >
-            AI PROCESSING
-          </button>
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('stt')}
+              className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
+            >
+              VOICE RECOGNITION
+            </button>
+            <button
+              onClick={() => setActiveTab('llm')}
+              className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
+            >
+              AI PROCESSING
+            </button>
+          </div>
+          {(sttResult?.text || llmResult?.llmResult.text) && (
+            <button
+              onClick={handleCopyAll}
+              className="hud-btn hud-btn-primary"
+              title="COPY ALL CONTENT"
+            >
+              COPY ALL
+            </button>
+          )}
         </div>
       </div>
 

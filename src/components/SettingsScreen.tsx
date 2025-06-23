@@ -73,7 +73,7 @@ export default function SettingsScreen() {
           <h2 className="hud-title">{t('settings.agentManagement')}</h2>
         </div>
         
-        <div className="hud-panel-content space-y-8">
+        <div className="hud-panel-content space-y-8 overflow-y-auto max-h-[calc(100vh-200px)]">
           {/* Agent Management Section */}
           <div className="hud-border-corner p-6">
             <div className="flex justify-between items-center mb-6">
@@ -221,7 +221,7 @@ function AgentEditModal({ agent, isCreating, onSave, onDelete, onCancel }: Agent
           </div>
         </div>
         
-        <div className="hud-panel-content overflow-y-auto">
+        <div className="hud-panel-content overflow-y-auto max-h-[calc(90vh-200px)]">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
             <div className="hud-border-corner p-4">

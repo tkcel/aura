@@ -8,7 +8,7 @@ export default function HistoryScreen() {
   const { history, deleteHistoryEntry, clearHistory, playAudioFile, copyToClipboard } = useApp();
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-full overflow-y-auto">
       <h2 className="text-2xl font-bold text-white mb-6">履歴</h2>
       <HistorySection 
         history={history}

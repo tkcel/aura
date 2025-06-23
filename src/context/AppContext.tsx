@@ -414,9 +414,12 @@ export function AppProvider({ children }: AppProviderProps) {
             audioFilePath,
             duration
           };
-          const historyId = await window.electronAPI.addHistoryEntry(historyEntry);
-          const newHistoryEntry: HistoryEntry = { id: historyId, ...historyEntry };
-          dispatch({ type: 'ADD_HISTORY_ENTRY', payload: newHistoryEntry });
+          
+          try {
+            await addHistoryEntry(historyEntry);
+          } catch (error) {
+            handleErrorSilently(error, 'Failed to add history entry');
+          }
         } else {
           throw new Error('LLM result 型不正');
         }
@@ -579,9 +582,12 @@ export function AppProvider({ children }: AppProviderProps) {
             response: (resultObj as LLMResult).text,
             timestamp: new Date(),
           };
-          const historyId = await window.electronAPI.addHistoryEntry(historyEntry);
-          const newHistoryEntry: HistoryEntry = { id: historyId, ...historyEntry };
-          dispatch({ type: 'ADD_HISTORY_ENTRY', payload: newHistoryEntry });
+          
+          try {
+            await addHistoryEntry(historyEntry);
+          } catch (error) {
+            handleErrorSilently(error, 'Failed to add history entry');
+          }
 
           setTimeout(() => {
             dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
@@ -602,6 +608,18 @@ export function AppProvider({ children }: AppProviderProps) {
   const skipAiProcessing = () => {
     dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: null });
     dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
+  };
+
+  const addHistoryEntry = async (entry: CreateHistoryEntry) => {
+    try {
+      const historyId = await window.electronAPI.addHistoryEntry(entry);
+      const newHistoryEntry: HistoryEntry = { id: historyId, ...entry };
+      dispatch({ type: 'ADD_HISTORY_ENTRY', payload: newHistoryEntry });
+      return historyId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to add history entry: ${errorMessage}`);
+    }
   };
 
   const setupElectronListeners = () => {
