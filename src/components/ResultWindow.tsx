@@ -7,14 +7,13 @@ import { t } from '../utils/i18n';
 type TabType = 'stt' | 'llm';
 
 export default function ResultWindow() {
-  const { llmResult, sttResult, copyToClipboard, currentState, settings, selectedAgent, language, error } = useApp();
+  const { llmResult, sttResult, copyToClipboard, currentState, settings, selectedAgent, language } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('stt');
 
   // Check processing states
   const isProcessingSTT = currentState === AppState.PROCESSING_STT;
   const isProcessingLLM = currentState === AppState.PROCESSING_LLM;
   const isProcessing = isProcessingSTT || isProcessingLLM;
-  const isError = currentState === AppState.ERROR;
 
   // Get the current selected agent (always use this for display)
   const currentAgentConfig = selectedAgent && settings ? 
@@ -31,28 +30,12 @@ export default function ResultWindow() {
 
   // Auto-switch tabs based on processing state
   React.useEffect(() => {
-    if (isError) {
-      // Don't change tabs when in error state
-      return;
-    }
-    
     if (isAiEnabled && (isProcessingLLM || llmResult)) {
       setActiveTab('llm');
     } else if (isProcessingSTT) {
       setActiveTab('stt');
     }
-  }, [isProcessingSTT, isProcessingLLM, llmResult, isAiEnabled, isError]);
-
-  // Debug logging to track state changes (remove in production)
-  React.useEffect(() => {
-    console.log('ResultWindow state changed:', {
-      currentState,
-      isError,
-      error,
-      sttResult: !!sttResult,
-      llmResult: !!llmResult
-    });
-  }, [currentState, isError, error, sttResult, llmResult]);
+  }, [isProcessingSTT, isProcessingLLM, llmResult, isAiEnabled]);
 
   const handleCopy = (type: TabType) => {
     const text = type === 'stt' ? sttResult?.text : llmResult?.llmResult?.text;
@@ -75,7 +58,6 @@ export default function ResultWindow() {
   };
 
   const getStatusIcon = () => {
-    if (isError) return { icon: "✗", animation: "" };
     if (isProcessingSTT) return { icon: "◐", animation: "hud-animate-spin" };
     if (isProcessingLLM) return { icon: "◑", animation: "hud-animate-spin" };
     if (llmResult) return { icon: "◉", animation: "" };
@@ -122,60 +104,40 @@ export default function ResultWindow() {
           </div>
         </div>
         
-        {/* Tab Navigation - Hidden on error */}
-        {!isError && (
-          <div className="border-b border-white/20 px-6 flex-shrink-0">
-            <div className="flex justify-between items-center">
-              <div className="flex gap-2">
+        {/* Tab Navigation */}
+        <div className="border-b border-white/20 px-6 flex-shrink-0">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('stt')}
+                className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
+              >
+                {t('results.voiceTab')}
+              </button>
+              {isAiEnabled && (
                 <button
-                  onClick={() => setActiveTab('stt')}
-                  className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('llm')}
+                  className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
                 >
-                  {t('results.voiceTab')}
-                </button>
-                {isAiEnabled && (
-                  <button
-                    onClick={() => setActiveTab('llm')}
-                    className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
-                  >
-                    {t('results.aiTab')}
-                  </button>
-                )}
-              </div>
-              {(sttResult?.text || llmResult?.llmResult?.text) && (
-                <button
-                  onClick={handleCopyAll}
-                  className="hud-btn hud-btn-primary"
-                  title={t('results.copyAllContent')}
-                >
-                  {t('results.copyAll') || 'COPY ALL'}
+                  {t('results.aiTab')}
                 </button>
               )}
             </div>
+            {(sttResult?.text || llmResult?.llmResult?.text) && (
+              <button
+                onClick={handleCopyAll}
+                className="hud-btn hud-btn-primary"
+                title={t('results.copyAllContent')}
+              >
+                {t('results.copyAll') || 'COPY ALL'}
+              </button>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
-          {isError ? (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="hud-subtitle text-red-400">RECORDING ERROR</h3>
-              </div>
-              
-              <div className="hud-border-corner p-4 border-red-500/30">
-                <div className="flex flex-col items-center justify-center h-[200px]">
-                  <div className="text-4xl mb-4 text-red-400">✗</div>
-                  <p className="hud-text text-red-300 text-center">RECORDING FAILED</p>
-                  {error && (
-                    <pre className="hud-text text-red-200 text-center mt-4 whitespace-pre-wrap break-words max-w-md">
-                      {error}
-                    </pre>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : activeTab === 'stt' && (
+          {activeTab === 'stt' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="hud-subtitle">{t('results.sttOutput')}</h3>
@@ -255,7 +217,7 @@ export default function ResultWindow() {
         </div>
         
         {/* Unified Meta Information */}
-        {(sttResult || llmResult) && !isProcessing && !isError && (
+        {(sttResult || llmResult) && !isProcessing && (
           <div className="border-t border-white/20 px-6 py-4 bg-white/5 flex-shrink-0">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-white/60">
               {/* Agent Info */}

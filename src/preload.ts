@@ -97,6 +97,9 @@ const api = {
   notifyLanguageChange: (language: 'en' | 'ja'): void =>
     ipcRenderer.send("update-main-language", language),
 
+  // App restart
+  restartApp: (): Promise<void> => ipcRenderer.invoke("restart-app"),
+
   // Global state management
   getAppState: (): Promise<{
     currentState: AppState;
@@ -153,6 +156,7 @@ const api = {
   onError: (callback: (error: string) => void) => {
     ipcRenderer.on("error", (_, error) => callback(error));
   },
+
 
   onShowSettings: (callback: () => void) => {
     ipcRenderer.on("show-settings", () => callback());

@@ -16,9 +16,9 @@ export const APP_CONFIG = {
 
 export const WINDOW_CONFIG = {
   BAR: {
-    WIDTH: 500,
-    HEIGHT: 500,
-    OFFSET: 0,
+    WIDTH: 80, // Small width for floating button
+    HEIGHT: 80, // Small height for floating button
+    OFFSET: 0, // Offset from screen edge
   },
   SETTINGS: {
     WIDTH: 800,

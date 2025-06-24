@@ -212,9 +212,6 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SET_ERROR', payload: error.message });
         dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
         dispatch({ type: 'SET_RECORDING', payload: false });
-        
-        // Ensure result window shows error state immediately
-        window.electronAPI.showResultWindow?.();
       },
       onTranscriptionComplete: (result: STTResult, audioFilePath?: string) => {
         dispatch({ type: 'SET_STT_RESULT', payload: result });
@@ -327,8 +324,7 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       await recordingService.stopRecording();
       
-      // Show result window immediately when recording stops
-      window.electronAPI.showResultWindow?.();
+      // Don't show result window here - it will be shown when processing completes
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       dispatch({ type: 'SET_ERROR', payload: `Stop recording failed: ${errorMessage}` });
@@ -360,7 +356,8 @@ export function AppProvider({ children }: AppProviderProps) {
     if (!selectedAgentConfig.autoProcessAi) {
       dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: sttResult.text });
       
-      // Result window already shown after STT completion
+      // Show result window when STT completes for AI-disabled agents
+      window.electronAPI.showResultWindow?.();
       
       // Add to history (STT only)
       const duration = recordingService.getRecordingDuration() ?? undefined;
@@ -677,6 +674,7 @@ export function AppProvider({ children }: AppProviderProps) {
     window.electronAPI.onError?.((error: string) => {
       dispatch({ type: 'SET_ERROR', payload: error });
     });
+
 
     // Agent selection from main process (bar window context menu)
     window.electronAPI.onSelectAgent?.((agentId: string) => {

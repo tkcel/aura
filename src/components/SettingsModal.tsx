@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useApp } from '../context/AppContext';
 import { t } from '../utils/i18n';
+import RestartConfirmModal from './RestartConfirmModal';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -25,6 +26,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   const [isTestingApi, setIsTestingApi] = useState(false);
   const [apiTestResult, setApiTestResult] = useState<'success' | 'failure' | null>(null);
   const [activeSection, setActiveSection] = useState<'api' | 'voice' | 'system' | 'history'>('api');
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -78,11 +80,27 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
 
   const handleSave = async () => {
     try {
-      await updateSettings(formData);
-      onClose();
+      setShowRestartConfirm(true);
     } catch (error) {
       // Error handling removed for production
     }
+  };
+
+  const handleRestartConfirm = async () => {
+    try {
+      await updateSettings(formData);
+      // Restart the app
+      if (window.electronAPI) {
+        await window.electronAPI.restartApp();
+      }
+    } catch (error) {
+      // Error handling removed for production
+      setShowRestartConfirm(false);
+    }
+  };
+
+  const handleRestartCancel = () => {
+    setShowRestartConfirm(false);
   };
 
   const handleTestApi = async () => {
@@ -399,6 +417,11 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 hud-scanlines">
       {content}
+      <RestartConfirmModal
+        isOpen={showRestartConfirm}
+        onConfirm={handleRestartConfirm}
+        onCancel={handleRestartCancel}
+      />
     </div>
   );
 }

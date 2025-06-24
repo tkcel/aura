@@ -427,6 +427,12 @@ class AriaApp {
       currentMainLanguage = language;
       this.updateTrayMenu();
     });
+
+    // App restart handler
+    ipcMain.handle("restart-app", () => {
+      app.relaunch();
+      app.quit();
+    });
   }
 
   /**
@@ -505,10 +511,11 @@ class AriaApp {
         // Reset window animation on error
         this.resetWindowFrameAnimation();
 
-        // Auto return to IDLE after showing error
+
+        // Auto return to IDLE after showing error (3 seconds to match RecordingService)
         setTimeout(() => {
           this.setAppState(AppState.IDLE);
-        }, 5000);
+        }, 3000);
         break;
       default:
     }
@@ -577,7 +584,7 @@ class AriaApp {
   }
 
   /**
-   * Creates the floating bar window that appears at the bottom right of the screen
+   * Creates the floating bar window that appears full height on the right side of the screen
    */
   private createBarWindow(): void {
     // Get screen dimensions
@@ -585,17 +592,17 @@ class AriaApp {
     const { width: screenWidth, height: screenHeight } =
       primaryDisplay.workAreaSize;
 
-    // Calculate position more precisely for bottom-right corner
+    // Calculate position for bottom right corner
     // Use workAreaSize to avoid clipping behind dock/taskbar
-    const windowX =
-      screenWidth - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
-    const windowY =
-      screenHeight - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
+    const windowWidth = WINDOW_CONFIG.BAR.WIDTH;
+    const windowHeight = WINDOW_CONFIG.BAR.HEIGHT;
+    const windowX = screenWidth - windowWidth - WINDOW_CONFIG.BAR.OFFSET;
+    const windowY = screenHeight - windowHeight - WINDOW_CONFIG.BAR.OFFSET;
 
-    // Create minimal floating window (just for the button) - position at bottom right
+    // Create small floating window positioned at bottom right corner
     this.barWindow = new BrowserWindow({
-      width: WINDOW_CONFIG.BAR.WIDTH,
-      height: WINDOW_CONFIG.BAR.HEIGHT,
+      width: windowWidth,
+      height: windowHeight,
       x: windowX,
       y: windowY,
       webPreferences: {
@@ -1096,8 +1103,11 @@ class AriaApp {
     const opacity = baseOpacity - level * (baseOpacity - minOpacity);
 
     try {
-      // Get current window bounds
+      // Get current window bounds and screen dimensions
       const bounds = this.barWindow.getBounds();
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+      
       const originalWidth = WINDOW_CONFIG.BAR.WIDTH;
       const originalHeight = WINDOW_CONFIG.BAR.HEIGHT;
 
@@ -1105,11 +1115,9 @@ class AriaApp {
       const newWidth = Math.round(originalWidth * scale);
       const newHeight = Math.round(originalHeight * scale);
 
-      // Calculate position to keep window centered on its current position
-      const centerX = bounds.x + bounds.width / 2;
-      const centerY = bounds.y + bounds.height / 2;
-      const newX = Math.round(centerX - newWidth / 2);
-      const newY = Math.round(centerY - newHeight / 2);
+      // Calculate position to keep window at bottom right corner
+      const newX = screenWidth - newWidth - WINDOW_CONFIG.BAR.OFFSET;
+      const newY = screenHeight - newHeight - WINDOW_CONFIG.BAR.OFFSET;
 
       // Apply window transformations
       this.barWindow.setBounds(
@@ -1143,19 +1151,19 @@ class AriaApp {
       const { width: screenWidth, height: screenHeight } =
         primaryDisplay.workAreaSize;
 
-      // Calculate original position
-      const windowX =
-        screenWidth - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
-      const windowY =
-        screenHeight - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
+      // Calculate original position for bottom right corner
+      const windowWidth = WINDOW_CONFIG.BAR.WIDTH;
+      const windowHeight = WINDOW_CONFIG.BAR.HEIGHT;
+      const windowX = screenWidth - windowWidth - WINDOW_CONFIG.BAR.OFFSET;
+      const windowY = screenHeight - windowHeight - WINDOW_CONFIG.BAR.OFFSET;
 
       // Reset to original size and position
       this.barWindow.setBounds(
         {
           x: windowX,
           y: windowY,
-          width: WINDOW_CONFIG.BAR.WIDTH,
-          height: WINDOW_CONFIG.BAR.HEIGHT,
+          width: windowWidth,
+          height: windowHeight,
         },
         false
       );
