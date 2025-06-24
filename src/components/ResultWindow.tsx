@@ -7,7 +7,7 @@ import { t } from '../utils/i18n';
 type TabType = 'stt' | 'llm';
 
 export default function ResultWindow() {
-  const { llmResult, sttResult, copyToClipboard, currentState, settings, selectedAgent, language } = useApp();
+  const { llmResult, sttResult, copyToClipboard, currentState, settings, selectedAgent, language, getCurrentResultMetadata } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('stt');
 
   // Check processing states
@@ -15,17 +15,26 @@ export default function ResultWindow() {
   const isProcessingLLM = currentState === AppState.PROCESSING_LLM;
   const isProcessing = isProcessingSTT || isProcessingLLM;
 
-  // Get the current selected agent (always use this for display)
+  // Get result metadata from history
+  const resultMetadata = getCurrentResultMetadata();
+  
+  // Get the agent that was used for this result (from history)
+  const resultAgentConfig = resultMetadata && settings ? 
+    settings.agents.find(a => a.id === resultMetadata.agentId) : null;
+  
+  // Get the currently selected agent for determining AI processing status during processing
   const currentAgentConfig = selectedAgent && settings ? 
     settings.agents.find(a => a.id === selectedAgent) : null;
-  const isAiEnabled = currentAgentConfig?.autoProcessAi ?? false;
-
-  // Display agent should always be the currently selected agent
-  const displayAgent = currentAgentConfig;
   
-  // Use the result timestamp if available, otherwise current time
-  const displayTime = llmResult?.timestamp ? 
-    new Date(llmResult.timestamp).toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US') :
+  // AI processing should be determined from history for completed results, current agent for processing
+  const isAiEnabled = resultMetadata ? resultMetadata.agentAutoProcessAi : (currentAgentConfig?.autoProcessAi ?? false);
+
+  // Display agent should be the agent that was used for the result, not the currently selected one
+  const displayAgent = resultAgentConfig;
+  
+  // Use the result timestamp from history
+  const displayTime = resultMetadata?.timestamp ? 
+    new Date(resultMetadata.timestamp).toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US') :
     new Date().toLocaleString(language === 'ja' ? 'ja-JP' : 'en-US');
 
   // Auto-switch tabs based on processing state
@@ -80,19 +89,7 @@ export default function ResultWindow() {
               </div>
               <div>
                 <h2 className="hud-title">{t('results.title')}</h2>
-                <div className="hud-subtitle mt-1">
-                  {displayAgent && (
-                    <span className="inline-flex items-center gap-2">
-                      {t('results.agent')}: {displayAgent.name.toUpperCase()}
-                      <div 
-                        className="w-2 h-2 rounded-full border border-white/30" 
-                        style={{ backgroundColor: displayAgent.color }}
-                      />
-                    </span>
-                  )}
-                  {displayAgent && <span className="mx-3">|</span>}
-                  <span>{t('results.timestamp')}: {displayTime}</span>
-                </div>
+                
               </div>
             </div>
             <button 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 
 import { RecordingService, RecordingState } from '../services/recording';
-import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult, isLLMResult, CreateHistoryEntry, UILanguage } from '../types';
+import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult, isLLMResult, CreateHistoryEntry, UILanguage, historyEntryToSTTResult, historyEntryToLLMResult, historyEntryToProcessingResult } from '../types';
 import { validateAgentSelection } from '../utils/agent-helpers';
 import { handleErrorSilently } from '../utils/error-handling';
 import { setLanguage as setI18nLanguage } from '../utils/i18n';
@@ -11,8 +11,6 @@ interface AppContextState {
   currentState: AppState;
   selectedAgent: string | null;
   isRecording: boolean;
-  sttResult: STTResult | null;
-  llmResult: ProcessingResult | null;
   error: string | null;
   history: HistoryEntry[];
   pendingTranscription: string | null;
@@ -26,10 +24,7 @@ type AppAction =
   | { type: 'SET_STATE'; payload: AppState; syncWithMain?: boolean }
   | { type: 'SELECT_AGENT'; payload: string; syncWithMain?: boolean }
   | { type: 'SET_RECORDING'; payload: boolean; syncWithMain?: boolean }
-  | { type: 'SET_STT_RESULT'; payload: STTResult }
-  | { type: 'SET_LLM_RESULT'; payload: ProcessingResult }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'CLEAR_RESULTS' }
   | { type: 'SET_HISTORY'; payload: HistoryEntry[] }
   | { type: 'ADD_HISTORY_ENTRY'; payload: HistoryEntry }
   | { type: 'SET_PENDING_TRANSCRIPTION'; payload: string | null }
@@ -45,8 +40,6 @@ const initialState: AppContextState = {
   currentState: AppState.IDLE,
   selectedAgent: null,
   isRecording: false,
-  sttResult: null,
-  llmResult: null,
   error: null,
   history: [],
   pendingTranscription: null,
@@ -70,14 +63,8 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
         return { ...state, selectedAgent: action.payload };
       case 'SET_RECORDING':
         return { ...state, isRecording: action.payload };
-      case 'SET_STT_RESULT':
-        return { ...state, sttResult: action.payload };
-      case 'SET_LLM_RESULT':
-        return { ...state, llmResult: action.payload };
       case 'SET_ERROR':
         return { ...state, error: action.payload };
-      case 'CLEAR_RESULTS':
-        return { ...state, sttResult: null, llmResult: null };
       case 'SET_HISTORY':
         return { ...state, history: action.payload };
       case 'ADD_HISTORY_ENTRY':
@@ -123,6 +110,12 @@ interface AppContextValue extends AppContextState {
   skipAiProcessing: () => void;
   changeLanguage: (lang: UILanguage) => Promise<void>;
   toggleLanguage: () => Promise<void>;
+  // New methods to get current results from history
+  getCurrentSTTResult: () => STTResult | null;
+  getCurrentLLMResult: () => ProcessingResult | null;
+  getCurrentResultMetadata: () => { agentId: string; agentName: string; timestamp: Date; audioFilePath?: string; duration?: number; agentAutoProcessAi: boolean } | null;
+  sttResult: STTResult | null;
+  llmResult: ProcessingResult | null;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -184,7 +177,7 @@ export function AppProvider({ children }: AppProviderProps) {
             if (stateRef.current.currentState === AppState.IDLE) {
               dispatch({ type: 'SET_STATE', payload: AppState.RECORDING });
             }
-            dispatch({ type: 'CLEAR_RESULTS' });
+            // Results are now managed through history
             break;
           case RecordingState.PROCESSING:
             dispatch({ type: 'SET_RECORDING', payload: false });
@@ -214,8 +207,6 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SET_RECORDING', payload: false });
       },
       onTranscriptionComplete: (result: STTResult, audioFilePath?: string) => {
-        dispatch({ type: 'SET_STT_RESULT', payload: result });
-        
         // Notify main process about STT completion
         window.electronAPI.notifyTranscriptionComplete?.(result);
         
@@ -368,7 +359,8 @@ export function AppProvider({ children }: AppProviderProps) {
         response: '', // No LLM response
         timestamp: new Date(),
         audioFilePath,
-        duration
+        duration,
+        agentAutoProcessAi: selectedAgentConfig.autoProcessAi
       };
       
       try {
@@ -416,7 +408,6 @@ export function AppProvider({ children }: AppProviderProps) {
             llmResult: llmTyped,
             timestamp: new Date()
           };
-          dispatch({ type: 'SET_LLM_RESULT', payload: result });
           
           // Notify main process about LLM result
           window.electronAPI.notifyLlmResult?.(result);
@@ -438,7 +429,8 @@ export function AppProvider({ children }: AppProviderProps) {
             response: llmTyped.text,
             timestamp: new Date(),
             audioFilePath,
-            duration
+            duration,
+            agentAutoProcessAi: agent?.autoProcessAi ?? false
           };
           
           try {
@@ -484,7 +476,6 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const selectAgent = (agentId: string) => {
     dispatch({ type: 'SELECT_AGENT', payload: agentId });
-    dispatch({ type: 'CLEAR_RESULTS' });
     
     // メインプロセスに選択状態を同期
     try {
@@ -590,7 +581,6 @@ export function AppProvider({ children }: AppProviderProps) {
             llmResult: resultObj as LLMResult,
             timestamp: new Date()
           };
-          dispatch({ type: 'SET_LLM_RESULT', payload: result });
           dispatch({ type: 'SET_STATE', payload: AppState.COMPLETED });
           dispatch({ type: 'SET_PENDING_TRANSCRIPTION', payload: null });
           
@@ -607,6 +597,7 @@ export function AppProvider({ children }: AppProviderProps) {
             transcription: transcription,
             response: (resultObj as LLMResult).text,
             timestamp: new Date(),
+            agentAutoProcessAi: agent?.autoProcessAi ?? false
           };
           
           try {
@@ -654,20 +645,19 @@ export function AppProvider({ children }: AppProviderProps) {
       dispatch({ type: 'SET_STATE', payload: newState });
     });
 
-    // STT results
+    // STT results - handled through history now
     window.electronAPI.onSttResult?.((result: STTResult) => {
-      dispatch({ type: 'SET_STT_RESULT', payload: result });
+      // STT results are now handled through history
     });
 
-    // LLM results
+    // LLM results - handled through history now  
     window.electronAPI.onLlmResult?.((result: ProcessingResult) => {
-      dispatch({ type: 'SET_LLM_RESULT', payload: result });
+      // LLM results are now handled through history
     });
 
-    // Processing complete
+    // Processing complete - handled through history now
     window.electronAPI.onProcessingComplete?.((result: ProcessingResult) => {
-      dispatch({ type: 'SET_LLM_RESULT', payload: result });
-      // Don't clear results immediately, let user see them
+      // Processing results are now handled through history
     });
 
     // Errors
@@ -760,6 +750,37 @@ export function AppProvider({ children }: AppProviderProps) {
     return () => clearInterval(interval);
   };
 
+  // Get current results from history
+  const getCurrentSTTResult = (): STTResult | null => {
+    if (state.history.length === 0) return null;
+    const latestEntry = state.history[0];
+    return historyEntryToSTTResult(latestEntry);
+  };
+
+  const getCurrentLLMResult = (): ProcessingResult | null => {
+    if (state.history.length === 0) return null;
+    const latestEntry = state.history[0];
+    return historyEntryToProcessingResult(latestEntry);
+  };
+
+  // Get current result metadata from history
+  const getCurrentResultMetadata = () => {
+    if (state.history.length === 0) return null;
+    const latestEntry = state.history[0];
+    return {
+      agentId: latestEntry.agentId,
+      agentName: latestEntry.agentName,
+      timestamp: latestEntry.timestamp,
+      audioFilePath: latestEntry.audioFilePath,
+      duration: latestEntry.duration,
+      agentAutoProcessAi: latestEntry.agentAutoProcessAi
+    };
+  };
+
+  // Computed properties for backward compatibility
+  const sttResult = getCurrentSTTResult();
+  const llmResult = getCurrentLLMResult();
+
   const checkOnlineStatus = async () => {
     try {
       // First check basic network connectivity
@@ -804,6 +825,11 @@ export function AppProvider({ children }: AppProviderProps) {
     skipAiProcessing,
     changeLanguage,
     toggleLanguage,
+    getCurrentSTTResult,
+    getCurrentLLMResult,
+    getCurrentResultMetadata,
+    sttResult,
+    llmResult,
   };
 
   return (

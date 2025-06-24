@@ -57,6 +57,7 @@ export interface HistoryEntry {
   timestamp: Date;
   audioFilePath?: string;
   duration?: number;
+  agentAutoProcessAi: boolean; // Whether AI processing was enabled for this agent at the time
 }
 
 export enum AppState {
@@ -101,4 +102,41 @@ export function isLLMResult(obj: unknown): obj is LLMResult {
     typeof (obj as LLMResult).model === 'string' &&
     typeof (obj as LLMResult).tokensUsed === 'number'
   );
+}
+
+// Utility functions to convert between history entries and result objects
+export function historyEntryToSTTResult(entry: HistoryEntry): STTResult {
+  return {
+    text: entry.transcription,
+    language: 'auto', // Default language as it's not stored in history
+    confidence: 0.95 // Default confidence as it's not stored in history
+  };
+}
+
+export function historyEntryToLLMResult(entry: HistoryEntry): LLMResult | null {
+  if (!entry.response) {
+    return null;
+  }
+  return {
+    text: entry.response,
+    model: 'gpt-4' as LLMModel, // Default model as it's not stored in history
+    tokensUsed: 0 // Default token count as it's not stored in history
+  };
+}
+
+export function historyEntryToProcessingResult(entry: HistoryEntry): ProcessingResult | null {
+  const sttResult = historyEntryToSTTResult(entry);
+  const llmResult = historyEntryToLLMResult(entry);
+  
+  if (!llmResult) {
+    return null;
+  }
+  
+  return {
+    agentId: entry.agentId,
+    sttResult,
+    llmResult,
+    timestamp: entry.timestamp,
+    audioFilePath: entry.audioFilePath
+  };
 }
