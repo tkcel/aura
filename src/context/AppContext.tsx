@@ -200,11 +200,11 @@ export function AppProvider({ children }: AppProviderProps) {
             dispatch({ type: 'SET_RECORDING', payload: false });
             dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
             
-            // Auto-clear error after 5 seconds
+            // Auto-clear error after 3 seconds to match RecordingService timeout
             setTimeout(() => {
               dispatch({ type: 'SET_STATE', payload: AppState.IDLE });
               dispatch({ type: 'SET_ERROR', payload: null });
-            }, 5000);
+            }, 3000);
             break;
         }
       },
@@ -212,6 +212,9 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'SET_ERROR', payload: error.message });
         dispatch({ type: 'SET_STATE', payload: AppState.ERROR });
         dispatch({ type: 'SET_RECORDING', payload: false });
+        
+        // Ensure result window shows error state immediately
+        window.electronAPI.showResultWindow?.();
       },
       onTranscriptionComplete: (result: STTResult, audioFilePath?: string) => {
         dispatch({ type: 'SET_STT_RESULT', payload: result });

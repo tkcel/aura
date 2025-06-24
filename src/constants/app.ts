@@ -16,8 +16,8 @@ export const APP_CONFIG = {
 
 export const WINDOW_CONFIG = {
   BAR: {
-    WIDTH: 60,
-    HEIGHT: 60,
+    WIDTH: 500,
+    HEIGHT: 500,
     OFFSET: 0,
   },
   SETTINGS: {

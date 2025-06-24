@@ -17,30 +17,33 @@ import * as path from "path";
 
 import * as fs from "fs-extra";
 
-import { APP_CONFIG, SHORTCUTS, WINDOW_CONFIG } from "./constants/app";
-
 // Simple translation system for main process
 const mainTranslations = {
   en: {
     "menu.openSettings": "OPEN SETTINGS",
-    "menu.showToolbar": "SHOW TOOLBAR", 
+    "menu.showToolbar": "SHOW TOOLBAR",
     "menu.hideToolbar": "HIDE TOOLBAR",
     "menu.exit": "EXIT",
   },
   ja: {
     "menu.openSettings": "設定を開く",
     "menu.showToolbar": "ツールバーを表示する",
-    "menu.hideToolbar": "ツールバーを非表示にする", 
+    "menu.hideToolbar": "ツールバーを非表示にする",
     "menu.exit": "アプリを終了する",
-  }
+  },
 };
 
-let currentMainLanguage: 'en' | 'ja' = 'en';
+let currentMainLanguage: "en" | "ja" = "en";
 
-function mainT(key: string): string {
-  return mainTranslations[currentMainLanguage]?.[key] || mainTranslations.en[key] || key;
+function mainT(key: keyof typeof mainTranslations.en): string {
+  return (
+    mainTranslations[currentMainLanguage]?.[key] ||
+    mainTranslations.en[key] ||
+    key
+  );
 }
 
+import { APP_CONFIG, SHORTCUTS, WINDOW_CONFIG } from "./constants/app";
 import { LLMService } from "./services/llm";
 import { SettingsService } from "./services/settings";
 import { AppState, HistoryEntry, ProcessingResult, STTResult } from "./types";
@@ -360,7 +363,7 @@ class AriaApp {
 
       // Add menu actions
       template.push({
-        label: mainT('menu.openSettings'),
+        label: mainT("menu.openSettings"),
         accelerator: SHORTCUTS.OPEN_SETTINGS,
         click: () => {
           this.showSettingsWindow();
@@ -368,7 +371,7 @@ class AriaApp {
       });
 
       template.push({
-        label: mainT('menu.hideToolbar'),
+        label: mainT("menu.hideToolbar"),
         click: () => {
           if (this.barWindow) {
             this.barWindow.hide();
@@ -420,7 +423,7 @@ class AriaApp {
     });
 
     // Language update handler
-    ipcMain.on("update-main-language", (_, language: 'en' | 'ja') => {
+    ipcMain.on("update-main-language", (_, language: "en" | "ja") => {
       currentMainLanguage = language;
       this.updateTrayMenu();
     });
@@ -774,7 +777,9 @@ class AriaApp {
     this.tray = new Tray(trayIcon);
 
     this.updateTrayMenu();
-    this.tray.setToolTip("A.R.I.A. - Autonomous Response & Intelligence Assistant");
+    this.tray.setToolTip(
+      "A.R.I.A. - Autonomous Response & Intelligence Assistant"
+    );
 
     this.tray.on("double-click", () => {
       this.showSettingsWindow();
@@ -789,7 +794,7 @@ class AriaApp {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: mainT('menu.showToolbar'),
+        label: mainT("menu.showToolbar"),
         click: () => {
           if (this.barWindow) {
             this.barWindow.show();
@@ -797,14 +802,14 @@ class AriaApp {
         },
       },
       {
-        label: mainT('menu.openSettings'),
+        label: mainT("menu.openSettings"),
         click: () => {
           this.showSettingsWindow();
         },
       },
       { type: "separator" },
       {
-        label: mainT('menu.exit'),
+        label: mainT("menu.exit"),
         click: () => {
           app.quit();
         },
@@ -1083,40 +1088,42 @@ class AriaApp {
     // Base size + audio level scaled to a reasonable range
     const baseScale = 1.0;
     const maxScale = 1.2; // Maximum 20% size increase
-    const scale = baseScale + (level * (maxScale - baseScale));
-    
+    const scale = baseScale + level * (maxScale - baseScale);
+
     // Calculate opacity pulse based on audio level
     const baseOpacity = 1.0;
     const minOpacity = 0.8;
-    const opacity = baseOpacity - (level * (baseOpacity - minOpacity));
+    const opacity = baseOpacity - level * (baseOpacity - minOpacity);
 
     try {
       // Get current window bounds
       const bounds = this.barWindow.getBounds();
       const originalWidth = WINDOW_CONFIG.BAR.WIDTH;
       const originalHeight = WINDOW_CONFIG.BAR.HEIGHT;
-      
+
       // Calculate new size
       const newWidth = Math.round(originalWidth * scale);
       const newHeight = Math.round(originalHeight * scale);
-      
+
       // Calculate position to keep window centered on its current position
       const centerX = bounds.x + bounds.width / 2;
       const centerY = bounds.y + bounds.height / 2;
       const newX = Math.round(centerX - newWidth / 2);
       const newY = Math.round(centerY - newHeight / 2);
-      
+
       // Apply window transformations
-      this.barWindow.setBounds({
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight
-      }, false);
-      
+      this.barWindow.setBounds(
+        {
+          x: newX,
+          y: newY,
+          width: newWidth,
+          height: newHeight,
+        },
+        false
+      );
+
       // Apply opacity animation
       this.barWindow.setOpacity(opacity);
-      
     } catch (error) {
       handleErrorSilently(error, "Failed to apply window frame animation");
     }
@@ -1133,23 +1140,28 @@ class AriaApp {
     try {
       // Get screen dimensions for positioning
       const primaryDisplay = screen.getPrimaryDisplay();
-      const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
-      
+      const { width: screenWidth, height: screenHeight } =
+        primaryDisplay.workAreaSize;
+
       // Calculate original position
-      const windowX = screenWidth - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
-      const windowY = screenHeight - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
+      const windowX =
+        screenWidth - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
+      const windowY =
+        screenHeight - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
 
       // Reset to original size and position
-      this.barWindow.setBounds({
-        x: windowX,
-        y: windowY,
-        width: WINDOW_CONFIG.BAR.WIDTH,
-        height: WINDOW_CONFIG.BAR.HEIGHT
-      }, false);
+      this.barWindow.setBounds(
+        {
+          x: windowX,
+          y: windowY,
+          width: WINDOW_CONFIG.BAR.WIDTH,
+          height: WINDOW_CONFIG.BAR.HEIGHT,
+        },
+        false
+      );
 
       // Reset opacity
       this.barWindow.setOpacity(1.0);
-      
     } catch (error) {
       handleErrorSilently(error, "Failed to reset window frame animation");
     }
@@ -1181,7 +1193,7 @@ app.on("activate", () => {
 });
 
 app.on("before-quit", () => {
-  auraApp.cleanup();
+  ariaApp.cleanup();
 });
 
 // Security: Prevent new window creation

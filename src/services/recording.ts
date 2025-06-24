@@ -76,6 +76,21 @@ export class RecordingService {
     this.setState(RecordingState.ERROR);
     this.cleanup();
     this.eventHandlers.onError?.(error);
+    
+    // Notify main process about the error
+    try {
+      // Send error information to main process to ensure all windows are notified
+      window.electronAPI?.notifyRecordingStateChange?.('error');
+    } catch (notifyError) {
+      console.warn('Failed to notify main process about recording error:', notifyError);
+    }
+    
+    // Auto-transition to IDLE after 3 seconds
+    setTimeout(() => {
+      if (this.state === RecordingState.ERROR) {
+        this.setState(RecordingState.IDLE);
+      }
+    }, 3000);
   }
 
   public async startRecording(): Promise<void> {

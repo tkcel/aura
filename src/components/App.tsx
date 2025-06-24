@@ -46,19 +46,6 @@ function AppContent() {
         `}} />
         <div className="h-full w-full">
           <BarWindow />
-          {error && (
-            <div className="fixed bottom-4 left-4 bg-red-500 text-white px-3 py-1 rounded text-xs shadow-lg max-w-xs" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-              <div className="flex justify-between items-center">
-                <span>{error}</span>
-                <button 
-                  onClick={clearError}
-                  className="ml-2 text-white hover:text-gray-200 text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </>
     );
