@@ -10,7 +10,7 @@ interface TabNavigationProps {
 export default function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   const tabs = [
     { id: 'history', label: t('tab.history'), icon: '◉' },
-    { id: 'settings', label: t('tab.settings'), icon: '◐' }
+    { id: 'settings', label: t('tab.settings'), icon: '◉' }
   ];
   return (
     <div className="flex border-b border-gray-200 bg-white/5">

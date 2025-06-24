@@ -176,6 +176,7 @@ const translations: Record<Language, Translations> = {
     "agents.createAgents": "CREATE AGENTS TO BEGIN",
     "agents.activeAgent": "ACTIVE AGENT",
     "agents.noHotkey": "NO HOTKEY",
+    "agents.disabled": "DISABLED",
 
     // Recording screen
     "recording.voiceRecording": "VOICE RECORDING",
@@ -397,6 +398,7 @@ const translations: Record<Language, Translations> = {
     "agents.createAgents": "エージェントを作成して開始してください",
     "agents.activeAgent": "アクティブエージェント",
     "agents.noHotkey": "ホットキーなし",
+    "agents.disabled": "無効",
 
     // Recording screen
     "recording.voiceRecording": "音声録音",

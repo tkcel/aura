@@ -35,7 +35,7 @@ export default function Header() {
         </div>
         
         {/* Status indicators */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-end gap-2">
           {/* System status */}
           <div className="flex items-center gap-3">
             <div className="hud-label text-white/60">SYSTEM STATUS:</div>
@@ -58,7 +58,7 @@ export default function Header() {
           
           {/* Version info */}
           <div className="hud-label text-white/40">
-            v2.0.1
+            v1.0.2
           </div>
         </div>
       </div>

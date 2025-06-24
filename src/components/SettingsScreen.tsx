@@ -31,6 +31,7 @@ export default function SettingsScreen() {
   }
 
   const enabledAgents = settings.agents.filter(agent => agent.enabled);
+  const disabledAgents = settings.agents.filter(agent => !agent.enabled);
 
   const handleSaveAgent = (agent: Agent) => {
     const updatedAgents = editingAgent
@@ -118,6 +119,53 @@ export default function SettingsScreen() {
                         {agent.hotkey || t('settings.noHotkey')}
                       </div>
                       <div className="hud-label text-white/40 mt-1">
+                        {t('settings.autoAiLabel')}: {agent.autoProcessAi ? t('settings.autoAiEnabled') : t('settings.autoAiDisabled')}
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingAgent(agent);
+                        setIsCreating(false);
+                      }}
+                      className="absolute bottom-2 right-2 hud-btn text-xs"
+                      title={t('settings.edit')}
+                    >
+                      {t('settings.edit')}
+                    </button>
+                  </div>
+                ))}
+                {disabledAgents.map((agent) => (
+                  <div
+                    key={agent.id}
+                    className={`
+                      relative hud-border-corner p-4 border transition-all duration-300 cursor-pointer opacity-50
+                      ${selectedAgent === agent.id 
+                        ? 'border-white/30 bg-white/5' 
+                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
+                      }
+                    `}
+                  >
+                    <button
+                      onClick={() => selectAgent(agent.id)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="hud-text font-semibold">
+                          {agent.name.toUpperCase()}
+                        </div>
+                        <div 
+                          className="w-3 h-3 hud-status-dot"
+                          style={{ backgroundColor: agent.color, opacity: 0.5 }}
+                        />
+                      </div>
+                      <div className="hud-label text-white/40">
+                        {agent.hotkey || t('settings.noHotkey')}
+                      </div>
+                      <div className="hud-label text-white/30 mt-1">
+                        ◦ {t('agents.disabled')}
+                      </div>
+                      <div className="hud-label text-white/30 mt-1">
                         {t('settings.autoAiLabel')}: {agent.autoProcessAi ? t('settings.autoAiEnabled') : t('settings.autoAiDisabled')}
                       </div>
                     </button>
@@ -372,6 +420,19 @@ function AgentEditModal({ agent, isCreating, onSave, onDelete, onCancel }: Agent
                 </label>
               </div>
             </div>
+
+            {/* Delete Section */}
+            {!isCreating && onDelete && (
+              <div className="pt-6 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="hud-text text-white/40 hover:text-red-400 transition-colors text-sm underline"
+                >
+                  {t('agentEdit.deleteAgent')}
+                </button>
+              </div>
+            )}
           </form>
         </div>
 
@@ -382,16 +443,8 @@ function AgentEditModal({ agent, isCreating, onSave, onDelete, onCancel }: Agent
               onClick={handleSubmit}
               className="hud-btn hud-btn-primary flex-1"
             >
-              {t('agentEdit.saveAgent')}
+              {t('common.save')}
             </button>
-            {!isCreating && onDelete && (
-              <button
-                onClick={handleDelete}
-                className="hud-btn hud-btn-danger"
-              >
-                {t('agentEdit.deleteAgent')}
-              </button>
-            )}
             <button
               onClick={onCancel}
               className="hud-btn flex-1"

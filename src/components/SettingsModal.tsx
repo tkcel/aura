@@ -103,9 +103,9 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
 
   const sections = [
     { id: 'api', label: t('settingsModal.apiConfig'), icon: '◦' },
-    { id: 'voice', label: t('settingsModal.audioSys'), icon: '◑' },
-    { id: 'system', label: t('settingsModal.coreSys'), icon: '◐' },
-    { id: 'history', label: t('settingsModal.dataArch'), icon: '◉' }
+    { id: 'voice', label: t('settingsModal.audioSys'), icon: '◦' },
+    { id: 'system', label: t('settingsModal.coreSys'), icon: '◦' },
+    { id: 'history', label: t('settingsModal.dataArch'), icon: '◦' }
   ] as const;
 
   const renderApiSection = () => (
