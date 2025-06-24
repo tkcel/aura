@@ -18,9 +18,32 @@ import * as path from "path";
 import * as fs from "fs-extra";
 
 import { APP_CONFIG, SHORTCUTS, WINDOW_CONFIG } from "./constants/app";
+
+// Simple translation system for main process
+const mainTranslations = {
+  en: {
+    "menu.openSettings": "OPEN SETTINGS",
+    "menu.showToolbar": "SHOW TOOLBAR", 
+    "menu.hideToolbar": "HIDE TOOLBAR",
+    "menu.exit": "EXIT",
+  },
+  ja: {
+    "menu.openSettings": "設定を開く",
+    "menu.showToolbar": "ツールバーを表示する",
+    "menu.hideToolbar": "ツールバーを非表示にする", 
+    "menu.exit": "アプリを終了する",
+  }
+};
+
+let currentMainLanguage: 'en' | 'ja' = 'en';
+
+function mainT(key: string): string {
+  return mainTranslations[currentMainLanguage]?.[key] || mainTranslations.en[key] || key;
+}
+
 import { LLMService } from "./services/llm";
 import { SettingsService } from "./services/settings";
-import { AppState, HistoryEntry, STTResult } from "./types";
+import { AppState, HistoryEntry, ProcessingResult, STTResult } from "./types";
 import { handleErrorSilently } from "./utils/error-handling";
 import { getErrorMessage } from "./utils/errors";
 import { generateId } from "./utils/helpers";
@@ -28,7 +51,7 @@ import { generateId } from "./utils/helpers";
 /**
  * Main application class that manages Electron windows, services, and IPC communication
  */
-class AuraApp {
+class AriaApp {
   /** Bar window instance for floating button */
   private barWindow: BrowserWindow | null = null;
 
@@ -225,7 +248,7 @@ class AuraApp {
         try {
           await fs.unlink(entry.audioFilePath);
         } catch (error) {
-          handleErrorSilently(error, 'Failed to delete audio file');
+          handleErrorSilently(error, "Failed to delete audio file");
         }
       }
 
@@ -243,7 +266,7 @@ class AuraApp {
           try {
             await fs.unlink(entry.audioFilePath);
           } catch (error) {
-            handleErrorSilently(error, 'Failed to delete audio file');
+            handleErrorSilently(error, "Failed to delete audio file");
           }
         }
       }
@@ -312,9 +335,10 @@ class AuraApp {
     // Show context menu for bar window
     ipcMain.handle("show-bar-context-menu", () => {
       const agents = this.settingsService.getEnabledAgents();
+      const currentSelectedAgentId = this.selectedAgent;
       const selectedAgent = this.settingsService
         .getSettings()
-        .agents.find((a) => a.enabled);
+        .agents.find((a) => a.id === currentSelectedAgentId);
 
       const template: Electron.MenuItemConstructorOptions[] = [];
 
@@ -336,7 +360,7 @@ class AuraApp {
 
       // Add menu actions
       template.push({
-        label: "OPEN SETTINGS",
+        label: mainT('menu.openSettings'),
         accelerator: SHORTCUTS.OPEN_SETTINGS,
         click: () => {
           this.showSettingsWindow();
@@ -344,7 +368,7 @@ class AuraApp {
       });
 
       template.push({
-        label: "HIDE TOOLBAR",
+        label: mainT('menu.hideToolbar'),
         click: () => {
           if (this.barWindow) {
             this.barWindow.hide();
@@ -388,6 +412,17 @@ class AuraApp {
     ipcMain.on("notify-llm-result", (_, result: ProcessingResult) => {
       this.currentLlmResult = result;
       this.sendToRenderer("llm-result", result);
+    });
+
+    // Handle audio level for window frame animation
+    ipcMain.on("notify-audio-level", (_, level: number) => {
+      this.applyWindowFrameAnimation(level);
+    });
+
+    // Language update handler
+    ipcMain.on("update-main-language", (_, language: 'en' | 'ja') => {
+      currentMainLanguage = language;
+      this.updateTrayMenu();
     });
   }
 
@@ -446,6 +481,8 @@ class AuraApp {
       case "PROCESSING":
         this.setRecordingState(false);
         this.setAppState(AppState.PROCESSING_STT);
+        // Reset window animation when recording stops
+        this.resetWindowFrameAnimation();
         break;
       case "IDLE":
         this.setRecordingState(false);
@@ -456,10 +493,14 @@ class AuraApp {
         ) {
           this.setAppState(AppState.IDLE);
         }
+        // Reset window animation when back to idle
+        this.resetWindowFrameAnimation();
         break;
       case "ERROR":
         this.setRecordingState(false);
         this.setAppState(AppState.ERROR);
+        // Reset window animation on error
+        this.resetWindowFrameAnimation();
 
         // Auto return to IDLE after showing error
         setTimeout(() => {
@@ -732,9 +773,23 @@ class AuraApp {
 
     this.tray = new Tray(trayIcon);
 
+    this.updateTrayMenu();
+    this.tray.setToolTip("A.R.I.A. - Autonomous Response & Intelligence Assistant");
+
+    this.tray.on("double-click", () => {
+      this.showSettingsWindow();
+    });
+  }
+
+  /**
+   * Updates the tray menu with current translations
+   */
+  private updateTrayMenu(): void {
+    if (!this.tray) return;
+
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: "SHOW TOOLBAR",
+        label: mainT('menu.showToolbar'),
         click: () => {
           if (this.barWindow) {
             this.barWindow.show();
@@ -742,14 +797,14 @@ class AuraApp {
         },
       },
       {
-        label: "OPEN SETTINGS",
+        label: mainT('menu.openSettings'),
         click: () => {
           this.showSettingsWindow();
         },
       },
       { type: "separator" },
       {
-        label: "EXIT",
+        label: mainT('menu.exit'),
         click: () => {
           app.quit();
         },
@@ -757,11 +812,6 @@ class AuraApp {
     ]);
 
     this.tray.setContextMenu(contextMenu);
-    this.tray.setToolTip("Aura - AI Voice Assistant");
-
-    this.tray.on("double-click", () => {
-      this.showSettingsWindow();
-    });
   }
 
   /**
@@ -825,7 +875,7 @@ class AuraApp {
 
           // Window level check removed - no longer always on top
         } catch (error) {
-          handleErrorSilently(error, 'Window visibility check failed');
+          handleErrorSilently(error, "Window visibility check failed");
         }
       }
     }, 2000);
@@ -1019,15 +1069,100 @@ class AuraApp {
     // Center the window on the screen
     this.resultWindow.center();
   }
+
+  /**
+   * Applies window frame animation based on audio level
+   * @param level - Audio level from 0 to 1
+   */
+  private applyWindowFrameAnimation(level: number): void {
+    if (!this.barWindow || this.barWindow.isDestroyed()) {
+      return;
+    }
+
+    // Calculate scale factor based on audio level
+    // Base size + audio level scaled to a reasonable range
+    const baseScale = 1.0;
+    const maxScale = 1.2; // Maximum 20% size increase
+    const scale = baseScale + (level * (maxScale - baseScale));
+    
+    // Calculate opacity pulse based on audio level
+    const baseOpacity = 1.0;
+    const minOpacity = 0.8;
+    const opacity = baseOpacity - (level * (baseOpacity - minOpacity));
+
+    try {
+      // Get current window bounds
+      const bounds = this.barWindow.getBounds();
+      const originalWidth = WINDOW_CONFIG.BAR.WIDTH;
+      const originalHeight = WINDOW_CONFIG.BAR.HEIGHT;
+      
+      // Calculate new size
+      const newWidth = Math.round(originalWidth * scale);
+      const newHeight = Math.round(originalHeight * scale);
+      
+      // Calculate position to keep window centered on its current position
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+      const newX = Math.round(centerX - newWidth / 2);
+      const newY = Math.round(centerY - newHeight / 2);
+      
+      // Apply window transformations
+      this.barWindow.setBounds({
+        x: newX,
+        y: newY,
+        width: newWidth,
+        height: newHeight
+      }, false);
+      
+      // Apply opacity animation
+      this.barWindow.setOpacity(opacity);
+      
+    } catch (error) {
+      handleErrorSilently(error, "Failed to apply window frame animation");
+    }
+  }
+
+  /**
+   * Resets window frame animation to original state
+   */
+  private resetWindowFrameAnimation(): void {
+    if (!this.barWindow || this.barWindow.isDestroyed()) {
+      return;
+    }
+
+    try {
+      // Get screen dimensions for positioning
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+      
+      // Calculate original position
+      const windowX = screenWidth - WINDOW_CONFIG.BAR.WIDTH - WINDOW_CONFIG.BAR.OFFSET;
+      const windowY = screenHeight - WINDOW_CONFIG.BAR.HEIGHT - WINDOW_CONFIG.BAR.OFFSET;
+
+      // Reset to original size and position
+      this.barWindow.setBounds({
+        x: windowX,
+        y: windowY,
+        width: WINDOW_CONFIG.BAR.WIDTH,
+        height: WINDOW_CONFIG.BAR.HEIGHT
+      }, false);
+
+      // Reset opacity
+      this.barWindow.setOpacity(1.0);
+      
+    } catch (error) {
+      handleErrorSilently(error, "Failed to reset window frame animation");
+    }
+  }
 }
 
 // Initialize the app
-const auraApp = new AuraApp();
+const ariaApp = new AriaApp();
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.whenReady().then(() => {
-  auraApp.initialize();
+  ariaApp.initialize();
 });
 
 // Quit when all windows are closed, except on macOS.
@@ -1041,7 +1176,7 @@ app.on("activate", () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
-    auraApp.initialize();
+    ariaApp.initialize();
   }
 });
 

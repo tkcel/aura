@@ -2,46 +2,46 @@
  * Custom error classes for better error handling
  */
 
-export class AuraError extends Error {
+export class AriaError extends Error {
   constructor(
     message: string,
     public readonly code: string,
     public readonly details?: unknown
   ) {
     super(message);
-    this.name = 'AuraError';
+    this.name = 'AriaError';
   }
 }
 
-export class RecordingError extends AuraError {
+export class RecordingError extends AriaError {
   constructor(message: string, details?: unknown) {
     super(message, 'RECORDING_ERROR', details);
     this.name = 'RecordingError';
   }
 }
 
-export class TranscriptionError extends AuraError {
+export class TranscriptionError extends AriaError {
   constructor(message: string, details?: unknown) {
     super(message, 'TRANSCRIPTION_ERROR', details);
     this.name = 'TranscriptionError';
   }
 }
 
-export class LLMError extends AuraError {
+export class LLMError extends AriaError {
   constructor(message: string, details?: unknown) {
     super(message, 'LLM_ERROR', details);
     this.name = 'LLMError';
   }
 }
 
-export class SettingsError extends AuraError {
+export class SettingsError extends AriaError {
   constructor(message: string, details?: unknown) {
     super(message, 'SETTINGS_ERROR', details);
     this.name = 'SettingsError';
   }
 }
 
-export class WindowError extends AuraError {
+export class WindowError extends AriaError {
   constructor(message: string, details?: unknown) {
     super(message, 'WINDOW_ERROR', details);
     this.name = 'WindowError';
@@ -49,17 +49,17 @@ export class WindowError extends AuraError {
 }
 
 /**
- * Type guard to check if an error is an AuraError
+ * Type guard to check if an error is an AriaError
  */
-export function isAuraError(error: unknown): error is AuraError {
-  return error instanceof AuraError;
+export function isAriaError(error: unknown): error is AriaError {
+  return error instanceof AriaError;
 }
 
 /**
  * Safely extract error message from unknown error
  */
 export function getErrorMessage(error: unknown): string {
-  if (isAuraError(error)) {
+  if (isAriaError(error)) {
     return error.message;
   }
   if (error instanceof Error) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { useApp } from '../context/AppContext';
 import { AppState } from '../types';
+import { t } from '../utils/i18n';
 
 export default function FloatingButton() {
   const { currentState, isRecording, startRecording, stopRecording, settings, selectAgent, selectedAgent } = useApp();
@@ -217,7 +218,7 @@ export default function FloatingButton() {
             onClick={handleSettingsClick}
           >
             <span>◐</span>
-            <span className="text-sm">OPEN SETTINGS</span>
+            <span className="text-sm">{t('menu.openSettings')}</span>
           </button>
 
           <button
@@ -225,7 +226,7 @@ export default function FloatingButton() {
             onClick={handleHideClick}
           >
             <span>○</span>
-            <span className="text-sm">HIDE TOOLBAR</span>
+            <span className="text-sm">{t('menu.hideToolbar')}</span>
           </button>
         </div>
       )}

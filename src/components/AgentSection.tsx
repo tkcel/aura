@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { useApp } from '../context/AppContext';
+import { t } from '../utils/i18n';
 
 export default function AgentSection() {
   const { settings, selectedAgent, selectAgent } = useApp();
@@ -14,7 +15,7 @@ export default function AgentSection() {
   return (
     <section className="mb-8">
       <div className="hud-border-corner p-6">
-        <h2 className="hud-subtitle mb-6">AI AGENT SELECTION</h2>
+        <h2 className="hud-subtitle mb-6">{t('agents.title')}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {enabledAgents.map((agent) => (
@@ -39,11 +40,11 @@ export default function AgentSection() {
                 />
               </div>
               <div className="hud-label bg-white/10 px-2 py-1 inline-block">
-                {agent.hotkey || 'NO HOTKEY'}
+                {agent.hotkey || t('agents.noHotkey')}
               </div>
               {selectedAgent === agent.id && (
                 <div className="mt-2 hud-label text-white/60">
-                  ● ACTIVE AGENT
+                  ● {t('agents.activeAgent')}
                 </div>
               )}
             </button>
@@ -53,8 +54,8 @@ export default function AgentSection() {
         {enabledAgents.length === 0 && (
           <div className="text-center py-8">
             <div className="text-2xl mb-2 text-white/30">◦</div>
-            <p className="hud-text text-white/60">NO AGENTS CONFIGURED</p>
-            <p className="hud-label text-white/40 mt-2">CREATE AGENTS TO BEGIN</p>
+            <p className="hud-text text-white/60">{t('agents.noAgents')}</p>
+            <p className="hud-label text-white/40 mt-2">{t('agents.createAgents')}</p>
           </div>
         )}
       </div>

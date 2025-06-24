@@ -9,11 +9,12 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ onClose, embedded = false }: SettingsModalProps) {
-  const { settings, updateSettings, testApiConnection } = useApp();
+  const { settings, updateSettings, testApiConnection, language, changeLanguage } = useApp();
   
   const [formData, setFormData] = useState({
     openaiApiKey: '',
     language: 'auto' as 'ja' | 'en' | 'auto',
+    uiLanguage: 'en' as 'ja' | 'en',
     autoStartup: false,
     systemTray: true,
     soundNotifications: true,
@@ -30,6 +31,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
       setFormData({
         openaiApiKey: settings.openaiApiKey || '',
         language: settings.language || 'auto',
+        uiLanguage: settings.uiLanguage || 'en',
         autoStartup: settings.autoStartup || false,
         systemTray: settings.systemTray !== undefined ? settings.systemTray : true,
         soundNotifications: settings.soundNotifications !== undefined ? settings.soundNotifications : true,
@@ -60,6 +62,11 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   const handleInputChange = (field: string, value: string | boolean | number) => {
     const newFormData = { ...formData, [field]: value };
     setFormData(newFormData);
+    
+    // UI言語の場合は即座に反映
+    if (field === 'uiLanguage') {
+      changeLanguage(value as 'ja' | 'en');
+    }
     
     // 埋め込みモードでは自動保存
     if (embedded) {
@@ -235,6 +242,23 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
             </div>
             <span className="hud-text">{t('settingsModal.audioNotifications')}</span>
           </label>
+        </div>
+      </div>
+
+      <div className="hud-border-corner p-4">
+        <div className="hud-subtitle mb-4">{t('settingsModal.uiLanguage')}</div>
+        <div className="space-y-3">
+          <select
+            value={formData.uiLanguage}
+            onChange={(e) => handleInputChange('uiLanguage', e.target.value)}
+            className="w-full bg-black/50 border border-white/30 hud-text px-3 py-2 focus:border-white/60 transition-colors"
+          >
+            <option value="en">{t('settingsModal.english')}</option>
+            <option value="ja">{t('settingsModal.japanese')}</option>
+          </select>
+          <div className="hud-label text-white/50 text-xs">
+            {t('settingsModal.uiLanguageDesc')}
+          </div>
         </div>
       </div>
     </div>

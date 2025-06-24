@@ -4,7 +4,7 @@ import IdleReactor from '../assets/reactors/idle.svg';
 import { useApp } from '../context/AppContext';
 
 export default function Header() {
-  const { language, toggleLanguage } = useApp();
+  const { language, isOnline } = useApp();
   return (
     <header className="hud-panel-header border-b border-white/20 relative">
       {/* Background geometric pattern */}
@@ -17,7 +17,7 @@ export default function Header() {
             <div className="relative">
               {/* Reactor logo/icon */}
               <div className="w-8 h-8 border-2 border-white/40 bg-white/10 flex items-center justify-center p-1">
-                <img src={IdleReactor} alt="AURA" className="w-full h-full opacity-80" />
+                <img src={IdleReactor} alt="A.R.I.A." className="w-full h-full opacity-80" />
               </div>
               
               {/* Corner brackets */}
@@ -28,29 +28,31 @@ export default function Header() {
             </div>
             
             <div>
-              <h1 className="hud-title">A.U.R.A.</h1>
-              <div className="hud-label text-white/50">AUDIO UNDERSTANDING RESPONSIVE AGENT</div>
+              <h1 className="hud-title">A.R.I.A.</h1>
+              <div className="hud-label text-white/50">AUTONOMOUS RESPONSE & INTELLIGENCE ASSISTANT</div>
             </div>
           </div>
         </div>
         
         {/* Status indicators */}
-        <div className="flex items-center gap-6">
-          {/* Language toggle */}
-          <button
-            onClick={toggleLanguage}
-            className="hud-btn text-xs px-2 py-1 border border-white/30 hover:border-white/50 transition-colors"
-            title="Toggle Language"
-          >
-            {language === 'en' ? '日本語' : 'English'}
-          </button>
-          
+        <div className="flex flex-col items-center gap-2">
           {/* System status */}
           <div className="flex items-center gap-3">
             <div className="hud-label text-white/60">SYSTEM STATUS:</div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 hud-status-dot idle"></div>
-              <span className="hud-label text-white/70">ONLINE</span>
+              <div 
+                className={`w-2 h-2 rounded-full border border-white/30 ${
+                  isOnline ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'
+                }`}
+                style={{ 
+                  boxShadow: isOnline 
+                    ? '0 0 10px rgba(34, 197, 94, 0.5)' 
+                    : '0 0 10px rgba(239, 68, 68, 0.5)' 
+                }}
+              ></div>
+              <span className="hud-label text-white/70">
+                {isOnline ? 'ONLINE' : 'OFFLINE'}
+              </span>
             </div>
           </div>
           

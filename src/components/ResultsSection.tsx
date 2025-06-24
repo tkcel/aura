@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import { useApp } from '../context/AppContext';
+import { t } from '../utils/i18n';
 
 type TabType = 'stt' | 'llm';
 
@@ -26,7 +27,7 @@ export default function ResultsSection() {
     const sttText = sttResult?.text || '';
     const llmText = llmResult?.llmResult.text || '';
     if (sttText || llmText) {
-      const combinedText = `音声認識: ${sttText}\n\nAI処理: ${llmText}`;
+      const combinedText = `${t('results.voiceTab')}: ${sttText}\n\n${t('results.aiTab')}: ${llmText}`;
       copyToClipboard(combinedText);
     }
   };
@@ -41,22 +42,22 @@ export default function ResultsSection() {
               onClick={() => setActiveTab('stt')}
               className={`hud-tab ${activeTab === 'stt' ? 'active' : ''}`}
             >
-              VOICE RECOGNITION
+              {t('results.voiceTab')}
             </button>
             <button
               onClick={() => setActiveTab('llm')}
               className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
             >
-              AI PROCESSING
+              {t('results.aiTab')}
             </button>
           </div>
           {(sttResult?.text || llmResult?.llmResult.text) && (
             <button
               onClick={handleCopyAll}
               className="hud-btn hud-btn-primary"
-              title="COPY ALL CONTENT"
+              title={t('results.copyAllContent')}
             >
-              COPY ALL
+              {t('results.copyAll')}
             </button>
           )}
         </div>
@@ -66,24 +67,24 @@ export default function ResultsSection() {
         {activeTab === 'stt' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="hud-subtitle">SPEECH-TO-TEXT OUTPUT</h3>
+              <h3 className="hud-subtitle">{t('results.sttOutput')}</h3>
               <button
                 onClick={() => handleCopy('stt')}
                 disabled={!sttResult?.text}
                 className="hud-btn hud-btn-primary"
               >
-                COPY DATA
+                {t('results.copyData')}
               </button>
             </div>
             <div className="hud-border-corner p-4 bg-black/30 min-h-[180px]">
               <pre className="hud-text whitespace-pre-wrap break-words selectable">
-                {sttResult?.text || 'AWAITING VOICE INPUT...'}
+                {sttResult?.text || t('results.awaitingVoice')}
               </pre>
             </div>
             {sttResult && (
               <div className="mt-3 hud-label text-white/50">
-                LANGUAGE: {sttResult.language?.toUpperCase()} | 
-                CONFIDENCE: {(sttResult.confidence * 100).toFixed(1)}%
+                {t('results.language')}: {sttResult.language?.toUpperCase()} | 
+                {t('results.confidence')}: {(sttResult.confidence * 100).toFixed(1)}%
               </div>
             )}
           </div>
@@ -92,24 +93,24 @@ export default function ResultsSection() {
         {activeTab === 'llm' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="hud-subtitle">ARTIFICIAL INTELLIGENCE OUTPUT</h3>
+              <h3 className="hud-subtitle">{t('results.aiOutput')}</h3>
               <button
                 onClick={() => handleCopy('llm')}
                 disabled={!llmResult?.llmResult.text}
                 className="hud-btn hud-btn-primary"
               >
-                COPY DATA
+                {t('results.copyData')}
               </button>
             </div>
             <div className="hud-border-corner p-4 bg-white/5 min-h-[180px]">
               <pre className="hud-text whitespace-pre-wrap break-words selectable">
-                {llmResult?.llmResult.text || 'AWAITING AI PROCESSING...'}
+                {llmResult?.llmResult.text || t('results.awaitingAi')}
               </pre>
             </div>
             {llmResult && (
               <div className="mt-3 hud-label text-white/50">
-                MODEL: {llmResult.llmResult.model?.toUpperCase()} | 
-                TOKENS: {llmResult.llmResult.tokensUsed}
+                {t('results.model')}: {llmResult.llmResult.model?.toUpperCase()} | 
+                {t('results.tokens')}: {llmResult.llmResult.tokensUsed}
               </div>
             )}
           </div>

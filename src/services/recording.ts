@@ -13,6 +13,7 @@ export interface RecordingEventHandlers {
   onStateChange?: (state: RecordingState) => void;
   onError?: (error: Error) => void;
   onTranscriptionComplete?: (result: STTResult, audioFilePath?: string) => void;
+  onAudioLevel?: (level: number) => void;
 }
 
 export class RecordingService {
@@ -23,6 +24,12 @@ export class RecordingService {
   private audioChunks: Blob[] = [];
   private eventHandlers: RecordingEventHandlers = {};
   private recordingStartTime: Date | null = null;
+  
+  // Audio visualization components
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private animationFrameId: number | null = null;
+  private dataArray: Uint8Array | null = null;
   
   // Settings for automatic transcription
   private transcriptionSettings: {
@@ -99,6 +106,9 @@ export class RecordingService {
       // Setup event handlers
       this.setupMediaRecorderEvents();
 
+      // Setup audio visualization
+      this.setupAudioVisualization();
+
       // Start recording
       this.audioChunks = [];
       this.recordingStartTime = new Date();
@@ -123,6 +133,9 @@ export class RecordingService {
       if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
         this.mediaRecorder.stop();
       }
+
+      // Stop audio visualization
+      this.stopAudioVisualization();
 
       this.setState(RecordingState.PROCESSING);
     } catch (error) {
@@ -374,6 +387,7 @@ export class RecordingService {
 
   private cleanup(): void {
     this.cleanupRecordingResources();
+    this.stopAudioVisualization();
     
     // Reset recording time but keep audio path for history
     this.recordingStartTime = null;
@@ -384,5 +398,83 @@ export class RecordingService {
     this.setState(RecordingState.IDLE);
     this.currentAudioPath = null;
     this.recordingStartTime = null;
+  }
+
+  // Audio visualization methods
+  private setupAudioVisualization(): void {
+    if (!this.mediaStream) return;
+
+    try {
+      // Create audio context and analyser
+      this.audioContext = new AudioContext();
+      this.analyser = this.audioContext.createAnalyser();
+      
+      // Configure analyser
+      this.analyser.fftSize = 256;
+      this.analyser.smoothingTimeConstant = 0.8;
+      
+      // Create data array for frequency data
+      this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+      
+      // Connect media stream to analyser
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+      source.connect(this.analyser);
+      
+      // Start the audio level monitoring loop
+      this.startAudioLevelMonitoring();
+    } catch (error) {
+      console.warn('Failed to setup audio visualization:', error);
+    }
+  }
+
+  private startAudioLevelMonitoring(): void {
+    if (!this.analyser || !this.dataArray) return;
+
+    const monitorAudioLevel = () => {
+      if (this.state !== RecordingState.RECORDING || !this.analyser || !this.dataArray) {
+        return;
+      }
+
+      // Get frequency data
+      this.analyser.getByteFrequencyData(this.dataArray);
+      
+      // Calculate average amplitude
+      let sum = 0;
+      for (let i = 0; i < this.dataArray.length; i++) {
+        sum += this.dataArray[i];
+      }
+      const average = sum / this.dataArray.length;
+      
+      // Normalize to 0-1 range and apply some smoothing
+      const normalizedLevel = Math.min(average / 128, 1);
+      
+      // Notify listeners of the audio level
+      this.eventHandlers.onAudioLevel?.(normalizedLevel);
+      
+      // Continue monitoring
+      this.animationFrameId = requestAnimationFrame(monitorAudioLevel);
+    };
+
+    monitorAudioLevel();
+  }
+
+  private stopAudioVisualization(): void {
+    // Stop animation frame
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    
+    // Close audio context
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(error => {
+        console.warn('Failed to close audio context:', error);
+      });
+    }
+    
+    // Reset audio visualization components
+    this.audioContext = null;
+    this.analyser = null;
+    this.dataArray = null;
   }
 }

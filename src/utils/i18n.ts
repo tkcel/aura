@@ -55,7 +55,7 @@ const translations: Record<Language, Translations> = {
 
     // History
     "history.title": "DATA ARCHIVE",
-    "history.systemTitle": "DATA ARCHIVE SYSTEM",
+    "history.systemTitle": "DATA ARCHIVE",
     "history.entries": "ENTRIES",
     "history.expand": "EXPAND ARCHIVE",
     "history.collapse": "COLLAPSE",
@@ -149,10 +149,85 @@ const translations: Record<Language, Translations> = {
     "settingsModal.entriesMax": "ENTRIES MAX",
     "settingsModal.autoPurge": "AUTO-PURGE WHEN LIMIT EXCEEDED",
     "settingsModal.saveConfig": "SAVE CONFIG",
+    "settingsModal.uiLanguage": "UI LANGUAGE",
+    "settingsModal.uiLanguageDesc": "Language for user interface display",
 
     // Tab Navigation
     "tab.history": "HISTORY",
     "tab.settings": "SETTINGS",
+
+    // Additional missing translations
+    "history.copyStt": "COPY STT",
+    "history.copyAi": "COPY AI",
+    "history.copyAll": "COPY ALL",
+    "history.audioArchived": "AUDIO ARCHIVED",
+    "history.playAudio": "PLAY AUDIO",
+    "history.copyTranscription": "COPY TRANSCRIPTION",
+    "history.copyAiResponse": "COPY AI RESPONSE",
+    "history.copyAllContent": "COPY ALL CONTENT",
+
+    // Results additional
+    "results.copyAll": "COPY ALL",
+    "results.copyAllContent": "COPY ALL CONTENT",
+
+    // Agents
+    "agents.title": "AI AGENT SELECTION",
+    "agents.noAgents": "NO AGENTS CONFIGURED",
+    "agents.createAgents": "CREATE AGENTS TO BEGIN",
+    "agents.activeAgent": "ACTIVE AGENT",
+    "agents.noHotkey": "NO HOTKEY",
+
+    // Recording screen
+    "recording.voiceRecording": "VOICE RECORDING",
+    "recording.autoAiProcessing": "AUTO AI PROCESSING",
+    "recording.enabled": "ENABLED",
+    "recording.disabled": "DISABLED",
+    "recording.processWithAi": "PROCESS WITH AI",
+    "recording.copyTranscription": "COPY TRANSCRIPTION",
+    "recording.skip": "SKIP",
+    "recording.speechRecognitionResult": "SPEECH RECOGNITION RESULT",
+
+    // Processing
+    "processing.analyzingVoice": "ANALYZING VOICE INPUT...",
+    "processing.neuralProcessing": "NEURAL NETWORK PROCESSING...",
+
+    // ModeEditScreen (Agent Management)
+    "modeEdit.loadingSettings": "LOADING SETTINGS...",
+    "modeEdit.deleteConfirm": "DELETE THIS AGENT?",
+    "modeEdit.agentEdit": "AGENT EDIT",
+    "modeEdit.createAgent": "CREATE AGENT",
+    "modeEdit.editAgent": "EDIT AGENT",
+    "modeEdit.createNew": "+ CREATE NEW",
+    "modeEdit.edit": "EDIT",
+    "modeEdit.delete": "DELETE",
+    "modeEdit.save": "SAVE",
+    "modeEdit.cancel": "CANCEL",
+    "modeEdit.name": "NAME",
+    "modeEdit.hotkey": "HOTKEY",
+    "modeEdit.instruction": "INSTRUCTION",
+    "modeEdit.model": "MODEL",
+    "modeEdit.temperature": "TEMPERATURE",
+    "modeEdit.color": "COLOR",
+    "modeEdit.enable": "ENABLE",
+    "modeEdit.autoProcessAi": "AUTO-PROCESS AI AFTER VOICE RECOGNITION",
+    "modeEdit.modelLabel": "MODEL:",
+    "modeEdit.temperatureLabel": "TEMPERATURE:",
+    "modeEdit.statusLabel": "STATUS:",
+    "modeEdit.enabled": "ENABLED",
+    "modeEdit.disabled": "DISABLED",
+    "modeEdit.aiAutoProcessLabel": "AI AUTO-PROCESS:",
+    "modeEdit.colorLabel": "COLOR:",
+    "modeEdit.hotkeyPlaceholder": "e.g. CommandOrControl+Alt+1",
+    "modeEdit.newAgentName": "NEW AGENT",
+    "modeEdit.modelGpt4": "GPT-4",
+    "modeEdit.modelGpt4Vision": "GPT-4 Vision",
+    "modeEdit.modelGpt35Turbo": "GPT-3.5 Turbo",
+
+    // Menu
+    "menu.openSettings": "OPEN SETTINGS",
+    "menu.showToolbar": "SHOW TOOLBAR",
+    "menu.hideToolbar": "HIDE TOOLBAR",
+    "menu.exit": "EXIT",
   },
   ja: {
     // Common
@@ -200,7 +275,7 @@ const translations: Record<Language, Translations> = {
 
     // History
     "history.title": "データアーカイブ",
-    "history.systemTitle": "データアーカイブシステム",
+    "history.systemTitle": "データアーカイブ",
     "history.entries": "件",
     "history.expand": "アーカイブを展開",
     "history.collapse": "折りたたむ",
@@ -290,15 +365,90 @@ const translations: Record<Language, Translations> = {
     "settingsModal.audioNotifications": "音声通知",
     "settingsModal.dataArchival": "データアーカイブ",
     "settingsModal.audioFilePreservation": "音声ファイル保存",
-    "settingsModal.storedIn": "保存先: ~/.aura/recordings",
+    "settingsModal.storedIn": "保存先: ~/.aria/recordings",
     "settingsModal.historyBufferSize": "履歴バッファサイズ:",
     "settingsModal.entriesMax": "最大エントリ数",
     "settingsModal.autoPurge": "制限超過時の自動削除",
     "settingsModal.saveConfig": "設定を保存",
+    "settingsModal.uiLanguage": "UI言語",
+    "settingsModal.uiLanguageDesc": "ユーザーインターフェースの表示言語",
 
     // Tab Navigation
     "tab.history": "履歴",
     "tab.settings": "設定",
+
+    // Additional missing translations
+    "history.copyStt": "STTをコピー",
+    "history.copyAi": "AIをコピー",
+    "history.copyAll": "すべてコピー",
+    "history.audioArchived": "音声アーカイブ済み",
+    "history.playAudio": "音声を再生",
+    "history.copyTranscription": "文字起こしをコピー",
+    "history.copyAiResponse": "AI応答をコピー",
+    "history.copyAllContent": "すべての内容をコピー",
+
+    // Results additional
+    "results.copyAll": "すべてコピー",
+    "results.copyAllContent": "すべての内容をコピー",
+
+    // Agents
+    "agents.title": "AIエージェント選択",
+    "agents.noAgents": "エージェントが設定されていません",
+    "agents.createAgents": "エージェントを作成して開始してください",
+    "agents.activeAgent": "アクティブエージェント",
+    "agents.noHotkey": "ホットキーなし",
+
+    // Recording screen
+    "recording.voiceRecording": "音声録音",
+    "recording.autoAiProcessing": "自動AI処理",
+    "recording.enabled": "有効",
+    "recording.disabled": "無効",
+    "recording.processWithAi": "AIで処理",
+    "recording.copyTranscription": "文字起こしをコピー",
+    "recording.skip": "スキップ",
+    "recording.speechRecognitionResult": "音声認識結果",
+
+    // Processing
+    "processing.analyzingVoice": "音声入力を解析中...",
+    "processing.neuralProcessing": "ニューラルネットワーク処理中...",
+
+    // ModeEditScreen (Agent Management)
+    "modeEdit.loadingSettings": "設定を読み込み中...",
+    "modeEdit.deleteConfirm": "このエージェントを削除しますか？",
+    "modeEdit.agentEdit": "エージェント編集",
+    "modeEdit.createAgent": "エージェントを作成",
+    "modeEdit.editAgent": "エージェントを編集",
+    "modeEdit.createNew": "+ 新規作成",
+    "modeEdit.edit": "編集",
+    "modeEdit.delete": "削除",
+    "modeEdit.save": "保存",
+    "modeEdit.cancel": "キャンセル",
+    "modeEdit.name": "名前",
+    "modeEdit.hotkey": "ホットキー",
+    "modeEdit.instruction": "指示文",
+    "modeEdit.model": "モデル",
+    "modeEdit.temperature": "温度",
+    "modeEdit.color": "色",
+    "modeEdit.enable": "有効にする",
+    "modeEdit.autoProcessAi": "音声認識後にAI処理を自動実行",
+    "modeEdit.modelLabel": "モデル:",
+    "modeEdit.temperatureLabel": "温度:",
+    "modeEdit.statusLabel": "状態:",
+    "modeEdit.enabled": "有効",
+    "modeEdit.disabled": "無効",
+    "modeEdit.aiAutoProcessLabel": "AI自動処理:",
+    "modeEdit.colorLabel": "色:",
+    "modeEdit.hotkeyPlaceholder": "例: CommandOrControl+Alt+1",
+    "modeEdit.newAgentName": "新しいエージェント",
+    "modeEdit.modelGpt4": "GPT-4",
+    "modeEdit.modelGpt4Vision": "GPT-4 Vision",
+    "modeEdit.modelGpt35Turbo": "GPT-3.5 Turbo",
+
+    // Menu
+    "menu.openSettings": "設定を開く",
+    "menu.showToolbar": "ツールバーを表示する",
+    "menu.hideToolbar": "ツールバーを非表示にする",
+    "menu.exit": "アプリを終了する",
   },
 };
 
@@ -333,7 +483,7 @@ export function t(key: string, fallback?: string): string {
 export function initializeLanguage(): Language {
   // Try to get saved language from localStorage
   try {
-    const saved = localStorage.getItem("aura-language") as Language;
+    const saved = localStorage.getItem("aria-language") as Language;
     if (saved && (saved === "en" || saved === "ja")) {
       setLanguage(saved);
       return saved;
@@ -350,7 +500,7 @@ export function initializeLanguage(): Language {
 
   // Save to localStorage
   try {
-    localStorage.setItem("aura-language", detectedLang);
+    localStorage.setItem("aria-language", detectedLang);
   } catch (error) {
     console.warn("Failed to save language preference:", error);
   }
@@ -363,7 +513,7 @@ export function toggleLanguage(): Language {
   setLanguage(newLang);
 
   try {
-    localStorage.setItem("aura-language", newLang);
+    localStorage.setItem("aria-language", newLang);
   } catch (error) {
     console.warn("Failed to save language preference:", error);
   }

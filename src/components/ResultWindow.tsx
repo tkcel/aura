@@ -15,13 +15,13 @@ export default function ResultWindow() {
   const isProcessingLLM = currentState === AppState.PROCESSING_LLM;
   const isProcessing = isProcessingSTT || isProcessingLLM;
 
-  // Get agent that actually processed the result (use agentId if available)
-  const resultAgent = llmResult?.agentId && settings ? 
-    settings.agents.find(a => a.id === llmResult.agentId) : null;
-  
-  // Only use currently selected agent if no agentId exists
-  const currentAgent = !llmResult?.agentId && selectedAgent && settings ? 
+  // Get the current selected agent (always use this for display)
+  const currentAgentConfig = selectedAgent && settings ? 
     settings.agents.find(a => a.id === selectedAgent) : null;
+  const isAiEnabled = currentAgentConfig?.autoProcessAi ?? false;
+
+  // Display agent should always be the currently selected agent
+  const displayAgent = currentAgentConfig;
   
   // Use the result timestamp if available, otherwise current time
   const displayTime = llmResult?.timestamp ? 
@@ -30,12 +30,12 @@ export default function ResultWindow() {
 
   // Auto-switch tabs based on processing state
   React.useEffect(() => {
-    if (isProcessingLLM || llmResult) {
+    if (isAiEnabled && (isProcessingLLM || llmResult)) {
       setActiveTab('llm');
     } else if (isProcessingSTT) {
       setActiveTab('stt');
     }
-  }, [isProcessingSTT, isProcessingLLM, llmResult]);
+  }, [isProcessingSTT, isProcessingLLM, llmResult, isAiEnabled]);
 
   const handleCopy = (type: TabType) => {
     const text = type === 'stt' ? sttResult?.text : llmResult?.llmResult?.text;
@@ -68,9 +68,9 @@ export default function ResultWindow() {
   const statusIcon = getStatusIcon();
 
   return (
-    <div className="min-h-screen bg-black text-white hud-scanlines">
+    <div className="h-screen bg-black text-white hud-scanlines flex flex-col">
       {/* HUD Container */}
-      <div className="hud-panel h-full hud-border-corner">
+      <div className="hud-panel flex-1 hud-border-corner flex flex-col overflow-hidden">
         {/* Header */}
         <div className="hud-panel-header">
           <div className="flex justify-between items-center">
@@ -81,19 +81,16 @@ export default function ResultWindow() {
               <div>
                 <h2 className="hud-title">{t('results.title')}</h2>
                 <div className="hud-subtitle mt-1">
-                  {llmResult?.agentId && resultAgent && (
+                  {displayAgent && (
                     <span className="inline-flex items-center gap-2">
-                      {t('results.agent')}: {resultAgent.name.toUpperCase()}
-                      <div className="w-2 h-2 hud-status-dot idle" />
+                      {t('results.agent')}: {displayAgent.name.toUpperCase()}
+                      <div 
+                        className="w-2 h-2 rounded-full border border-white/30" 
+                        style={{ backgroundColor: displayAgent.color }}
+                      />
                     </span>
                   )}
-                  {!llmResult?.agentId && currentAgent && (
-                    <span className="inline-flex items-center gap-2">
-                      {t('results.agent')}: {currentAgent.name.toUpperCase()}
-                      <div className="w-2 h-2 hud-status-dot idle" />
-                    </span>
-                  )}
-                  {(resultAgent || currentAgent) && <span className="mx-3">|</span>}
+                  {displayAgent && <span className="mx-3">|</span>}
                   <span>{t('results.timestamp')}: {displayTime}</span>
                 </div>
               </div>
@@ -102,13 +99,13 @@ export default function ResultWindow() {
               onClick={handleClose}
               className="hud-btn text-white/60 hover:text-white"
             >
-              TERMINATE
+              {t('results.terminate')}
             </button>
           </div>
         </div>
         
         {/* Tab Navigation */}
-        <div className="border-b border-white/20 px-6">
+        <div className="border-b border-white/20 px-6 flex-shrink-0">
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <button
@@ -117,18 +114,20 @@ export default function ResultWindow() {
               >
                 {t('results.voiceTab')}
               </button>
-              <button
-                onClick={() => setActiveTab('llm')}
-                className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
-              >
-                {t('results.aiTab')}
-              </button>
+              {isAiEnabled && (
+                <button
+                  onClick={() => setActiveTab('llm')}
+                  className={`hud-tab ${activeTab === 'llm' ? 'active' : ''}`}
+                >
+                  {t('results.aiTab')}
+                </button>
+              )}
             </div>
             {(sttResult?.text || llmResult?.llmResult?.text) && (
               <button
                 onClick={handleCopyAll}
                 className="hud-btn hud-btn-primary"
-                title="COPY ALL CONTENT"
+                title={t('results.copyAllContent')}
               >
                 {t('results.copyAll') || 'COPY ALL'}
               </button>
@@ -137,7 +136,7 @@ export default function ResultWindow() {
         </div>
 
         {/* Content Area */}
-        <div className="hud-panel-content min-h-[400px]">
+        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
           {activeTab === 'stt' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -177,7 +176,7 @@ export default function ResultWindow() {
             </div>
           )}
 
-          {activeTab === 'llm' && (
+          {activeTab === 'llm' && isAiEnabled && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="hud-subtitle">{t('results.aiOutput')}</h3>
@@ -219,24 +218,18 @@ export default function ResultWindow() {
         
         {/* Unified Meta Information */}
         {(sttResult || llmResult) && !isProcessing && (
-          <div className="border-t border-white/20 px-6 py-4 bg-white/5">
+          <div className="border-t border-white/20 px-6 py-4 bg-white/5 flex-shrink-0">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-white/60">
               {/* Agent Info */}
-              {llmResult?.agentId && resultAgent && (
+              {displayAgent && (
                 <div className="hud-label text-center">
                   <div className="text-white/40 text-xs mb-1">{t('results.agent')}</div>
                   <div className="flex items-center justify-center gap-2">
-                    <span className="text-white/80">{resultAgent.name.toUpperCase()}</span>
-                    <div className="w-2 h-2 hud-status-dot idle" />
-                  </div>
-                </div>
-              )}
-              {!llmResult?.agentId && currentAgent && (
-                <div className="hud-label text-center">
-                  <div className="text-white/40 text-xs mb-1">{t('results.agent')}</div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-white/80">{currentAgent.name.toUpperCase()}</span>
-                    <div className="w-2 h-2 hud-status-dot idle" />
+                    <span className="text-white/80">{displayAgent.name.toUpperCase()}</span>
+                    <div 
+                      className="w-2 h-2 rounded-full border border-white/30" 
+                      style={{ backgroundColor: displayAgent.color }}
+                    />
                   </div>
                 </div>
               )}
@@ -273,21 +266,6 @@ export default function ResultWindow() {
             </div>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="border-t border-white/20 p-6 bg-white/5">
-          <div className="flex justify-between items-center">
-            <div className="hud-label">
-              {t('results.status')}: {isProcessing ? t('common.processing') : t('common.ready')}
-            </div>
-            <button
-              onClick={handleClose}
-              className="hud-btn"
-            >
-              {t('results.closeTerminal')}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

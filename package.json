@@ -1,6 +1,6 @@
 {
-  "name": "aura",
-  "productName": "aura",
+  "name": "aria",
+  "productName": "A.R.I.A.",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",

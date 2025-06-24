@@ -66,7 +66,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white hud-scanlines">
+    
       <div className="hud-panel h-full hud-border-corner">
         {/* Header */}
         <div className="hud-panel-header">
@@ -150,7 +150,7 @@ export default function SettingsScreen() {
               </button>
             </div>
           </div>
-        </div>
+        
       </div>
 
       {editingAgent && (

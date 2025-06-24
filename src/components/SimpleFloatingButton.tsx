@@ -17,7 +17,8 @@ export default function SimpleFloatingButton() {
     selectedAgentColor,
     handleMainButtonClick,
     handleContextMenu,
-    getSpinClasses
+    getSpinClasses,
+    isButtonDisabled
   } = useFloatingButton();
 
   const getMainButtonIcon = () => {
@@ -46,7 +47,9 @@ export default function SimpleFloatingButton() {
       
       {/* Main floating button with HUD design */}
       <button
-        className="relative group transition-all duration-200 flex items-center justify-center w-full h-full"
+        className={`relative group transition-all duration-200 flex items-center justify-center w-full h-full ${
+          isButtonDisabled() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+        }`}
         onClick={handleMainButtonClick}
         onContextMenu={handleContextMenu}
         title={isRecording ? "Stop recording (click) / Open menu (right-click)" : "Start recording (click) / Open menu (right-click)"}
@@ -54,19 +57,32 @@ export default function SimpleFloatingButton() {
         aria-pressed={isRecording}
         role="button"
         tabIndex={0}
+        disabled={isButtonDisabled()}
       >
         {/* Container to ensure perfect centering */}
         <div className="relative flex items-center justify-center">
           {/* Reactor icon container */}
-          <div className="w-12 h-12 border-2 border-white/40 bg-white/10 flex items-center justify-center p-2 group-hover:border-white/60 group-hover:bg-white/20 transition-all duration-200">
+          <div className={`w-12 h-12 border-2 border-white/40 bg-white/10 flex items-center justify-center p-2 transition-all duration-200 ${
+            isButtonDisabled() 
+              ? 'border-white/20 bg-white/5' 
+              : 'group-hover:border-white/60 group-hover:bg-white/20'
+          }`}>
             {getMainButtonIcon()}
           </div>
           
           {/* Corner brackets */}
-          <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-white/60 group-hover:border-white/80 transition-colors duration-200"></div>
-          <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-white/60 group-hover:border-white/80 transition-colors duration-200"></div>
-          <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-white/60 group-hover:border-white/80 transition-colors duration-200"></div>
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-white/60 group-hover:border-white/80 transition-colors duration-200"></div>
+          <div className={`absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 transition-colors duration-200 ${
+            isButtonDisabled() ? 'border-white/30' : 'border-white/60 group-hover:border-white/80'
+          }`}></div>
+          <div className={`absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 transition-colors duration-200 ${
+            isButtonDisabled() ? 'border-white/30' : 'border-white/60 group-hover:border-white/80'
+          }`}></div>
+          <div className={`absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 transition-colors duration-200 ${
+            isButtonDisabled() ? 'border-white/30' : 'border-white/60 group-hover:border-white/80'
+          }`}></div>
+          <div className={`absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 transition-colors duration-200 ${
+            isButtonDisabled() ? 'border-white/30' : 'border-white/60 group-hover:border-white/80'
+          }`}></div>
           
           {/* Agent color indicator */}
           {selectedAgentColor && (

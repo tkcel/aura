@@ -91,6 +91,12 @@ const api = {
   notifyTranscriptionComplete: (result: STTResult): Promise<void> =>
     ipcRenderer.invoke("notify-transcription-complete", result),
 
+  notifyAudioLevel: (level: number): void =>
+    ipcRenderer.send("notify-audio-level", level),
+
+  notifyLanguageChange: (language: 'en' | 'ja'): void =>
+    ipcRenderer.send("update-main-language", language),
+
   // Global state management
   getAppState: (): Promise<{
     currentState: AppState;

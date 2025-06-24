@@ -2,6 +2,7 @@ import React from 'react';
 
 import { useApp } from '../context/AppContext';
 import { AppState } from '../types';
+import { t } from '../utils/i18n';
 
 export default function ProcessingOverlay() {
   const { currentState } = useApp();
@@ -11,20 +12,20 @@ export default function ProcessingOverlay() {
       case AppState.PROCESSING_STT:
         return {
           icon: "◐",
-          text: "ANALYZING VOICE INPUT...",
-          status: "STT PROCESSING"
+          text: t('processing.analyzingVoice'),
+          status: t('results.voiceTab')
         };
       case AppState.PROCESSING_LLM:
         return {
           icon: "◑",
-          text: "NEURAL NETWORK PROCESSING...",
-          status: "AI PROCESSING"
+          text: t('processing.neuralProcessing'),
+          status: t('results.aiTab')
         };
       default:
         return {
           icon: "◦",
-          text: "SYSTEM PROCESSING...",
-          status: "PROCESSING"
+          text: t('common.processing') + '...',
+          status: t('common.processing')
         };
     }
   };

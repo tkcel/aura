@@ -11,7 +11,7 @@ export class SettingsService {
   private settings: AppSettings;
 
   constructor() {
-    const configDir = path.join(os.homedir(), '.aura');
+    const configDir = path.join(os.homedir(), '.aria');
     this.settingsPath = path.join(configDir, 'settings.json');
     this.ensureConfigDir();
     this.settings = this.loadSettings();
@@ -25,9 +25,14 @@ export class SettingsService {
   }
 
   private getDefaultSettings(): AppSettings {
+    // Detect system language for UI default
+    const systemLang = Intl.DateTimeFormat().resolvedOptions().locale;
+    const defaultUILanguage = systemLang.startsWith('ja') ? 'ja' : 'en';
+    
     return {
       openaiApiKey: '',
       language: 'auto',
+      uiLanguage: defaultUILanguage,
       agents: DEFAULT_AGENTS,
       autoStartup: false,
       systemTray: true,

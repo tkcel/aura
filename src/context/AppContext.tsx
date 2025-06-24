@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 
 import { RecordingService, RecordingState } from '../services/recording';
-import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult, isLLMResult, CreateHistoryEntry } from '../types';
+import { AppSettings, ProcessingResult, STTResult, AppState, HistoryEntry, LLMResult, isLLMResult, CreateHistoryEntry, UILanguage } from '../types';
 import { validateAgentSelection } from '../utils/agent-helpers';
 import { handleErrorSilently } from '../utils/error-handling';
-import { Language, initializeLanguage, setLanguage } from '../utils/i18n';
+import { setLanguage as setI18nLanguage } from '../utils/i18n';
 
 interface AppContextState {
   settings: AppSettings | null;
@@ -16,7 +16,9 @@ interface AppContextState {
   error: string | null;
   history: HistoryEntry[];
   pendingTranscription: string | null;
-  language: Language;
+  language: UILanguage;
+  audioLevel: number;
+  isOnline: boolean;
 }
 
 type AppAction =
@@ -34,7 +36,9 @@ type AppAction =
   | { type: 'SET_STATE_FROM_MAIN'; payload: AppState }
   | { type: 'SELECT_AGENT_FROM_MAIN'; payload: string }
   | { type: 'SET_RECORDING_FROM_MAIN'; payload: boolean }
-  | { type: 'SET_LANGUAGE'; payload: Language };
+  | { type: 'SET_LANGUAGE'; payload: UILanguage }
+  | { type: 'SET_AUDIO_LEVEL'; payload: number }
+  | { type: 'SET_ONLINE_STATUS'; payload: boolean };
 
 const initialState: AppContextState = {
   settings: null,
@@ -47,6 +51,8 @@ const initialState: AppContextState = {
   history: [],
   pendingTranscription: null,
   language: 'en',
+  audioLevel: 0,
+  isOnline: false,
 };
 
 function appReducer(state: AppContextState, action: AppAction): AppContextState {
@@ -87,6 +93,10 @@ function appReducer(state: AppContextState, action: AppAction): AppContextState 
         return { ...state, isRecording: action.payload };
       case 'SET_LANGUAGE':
         return { ...state, language: action.payload };
+      case 'SET_AUDIO_LEVEL':
+        return { ...state, audioLevel: action.payload };
+      case 'SET_ONLINE_STATUS':
+        return { ...state, isOnline: action.payload };
       default:
         return state;
     }
@@ -111,8 +121,8 @@ interface AppContextValue extends AppContextState {
   playAudioFile: (filePath: string) => void;
   processWithAi: (transcription: string) => Promise<void>;
   skipAiProcessing: () => void;
-  changeLanguage: (lang: Language) => void;
-  toggleLanguage: () => void;
+  changeLanguage: (lang: UILanguage) => Promise<void>;
+  toggleLanguage: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -141,15 +151,12 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Initialize app and load settings
   useEffect(() => {
-    // Initialize language first
-    const detectedLang = initializeLanguage();
-    dispatch({ type: 'SET_LANGUAGE', payload: detectedLang });
-    
     loadSettings();
     loadHistory();
     loadInitialState();
     setupElectronListeners();
     setupRecordingService();
+    setupOnlineStatusMonitoring();
   }, []);
 
   const loadInitialState = async () => {
@@ -176,8 +183,8 @@ export function AppProvider({ children }: AppProviderProps) {
             dispatch({ type: 'SET_RECORDING', payload: true });
             if (stateRef.current.currentState === AppState.IDLE) {
               dispatch({ type: 'SET_STATE', payload: AppState.RECORDING });
-              dispatch({ type: 'CLEAR_RESULTS' });
             }
+            dispatch({ type: 'CLEAR_RESULTS' });
             break;
           case RecordingState.PROCESSING:
             dispatch({ type: 'SET_RECORDING', payload: false });
@@ -216,6 +223,11 @@ export function AppProvider({ children }: AppProviderProps) {
         
         // STT完了後は明示的にLLM処理またはIDLEに遷移
         processTranscriptionResult(result, audioFilePath);
+      },
+      onAudioLevel: (level: number) => {
+        dispatch({ type: 'SET_AUDIO_LEVEL', payload: level });
+        // Send audio level to main process for window animation
+        window.electronAPI.notifyAudioLevel?.(level);
       }
     });
     
@@ -237,6 +249,20 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       const settings = await window.electronAPI.getSettings();
       dispatch({ type: 'SET_SETTINGS', payload: settings });
+      
+      // Initialize UI language from settings
+      if (settings.uiLanguage) {
+        dispatch({ type: 'SET_LANGUAGE', payload: settings.uiLanguage });
+        setI18nLanguage(settings.uiLanguage);
+        
+        // Notify main process of initial language
+        try {
+          window.electronAPI?.notifyLanguageChange?.(settings.uiLanguage);
+        } catch (error) {
+          console.warn('Failed to notify main process of initial language:', error);
+        }
+      }
+      
       // Update recording service settings after loading
       setTimeout(() => updateRecordingServiceSettings(), 100);
     } catch (error) {
@@ -681,20 +707,82 @@ export function AppProvider({ children }: AppProviderProps) {
     });
   };
 
-  const changeLanguage = (lang: Language) => {
-    setLanguage(lang);
+  const changeLanguage = async (lang: UILanguage) => {
+    setI18nLanguage(lang);
     dispatch({ type: 'SET_LANGUAGE', payload: lang });
     
+    // Notify main process of language change
     try {
-      localStorage.setItem('aura-language', lang);
+      window.electronAPI?.notifyLanguageChange?.(lang);
     } catch (error) {
-      console.warn('Failed to save language preference:', error);
+      console.warn('Failed to notify main process of language change:', error);
+    }
+    
+    // Save to settings
+    if (state.settings) {
+      try {
+        await updateSettings({ uiLanguage: lang });
+      } catch (error) {
+        console.warn('Failed to save language preference:', error);
+      }
     }
   };
 
-  const toggleLanguage = () => {
-    const newLang: Language = state.language === 'en' ? 'ja' : 'en';
-    changeLanguage(newLang);
+  const toggleLanguage = async () => {
+    const newLang: UILanguage = state.language === 'en' ? 'ja' : 'en';
+    await changeLanguage(newLang);
+  };
+
+  const setupOnlineStatusMonitoring = () => {
+    // Check initial online status
+    checkOnlineStatus();
+    
+    // Set up periodic monitoring every 30 seconds
+    const interval = setInterval(checkOnlineStatus, 30000);
+    
+    // Browser online/offline events (for web-based scenarios)
+    if (typeof window !== 'undefined') {
+      const handleOnline = () => checkOnlineStatus();
+      const handleOffline = () => dispatch({ type: 'SET_ONLINE_STATUS', payload: false });
+      
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      
+      // Cleanup
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+    
+    return () => clearInterval(interval);
+  };
+
+  const checkOnlineStatus = async () => {
+    try {
+      // First check basic network connectivity
+      const networkOnline = navigator.onLine;
+      if (!networkOnline) {
+        dispatch({ type: 'SET_ONLINE_STATUS', payload: false });
+        return;
+      }
+
+      // Check if OpenAI API is accessible
+      if (state.settings?.openaiApiKey) {
+        try {
+          const apiResult = await testApiConnection();
+          dispatch({ type: 'SET_ONLINE_STATUS', payload: apiResult });
+        } catch (error) {
+          dispatch({ type: 'SET_ONLINE_STATUS', payload: false });
+        }
+      } else {
+        // No API key configured, just check network
+        dispatch({ type: 'SET_ONLINE_STATUS', payload: networkOnline });
+      }
+    } catch (error) {
+      dispatch({ type: 'SET_ONLINE_STATUS', payload: false });
+    }
   };
 
   const contextValue: AppContextValue = {

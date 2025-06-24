@@ -10,7 +10,7 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    appBundleId: 'com.aura.app',
+    appBundleId: 'com.aria.app',
     darwinDarkModeSupport: true,
     extendInfo: {
       LSUIElement: true, // This makes the app not show in the dock

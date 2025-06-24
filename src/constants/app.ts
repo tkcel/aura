@@ -3,10 +3,10 @@
  */
 
 export const APP_CONFIG = {
-  NAME: "Aura",
+  NAME: "A.R.I.A.",
   VERSION: "1.0.0",
-  BUNDLE_ID: "com.aura.app",
-  CONFIG_DIR: ".aura",
+  BUNDLE_ID: "com.aria.app",
+  CONFIG_DIR: ".aria",
   FILES: {
     SETTINGS: "settings.json",
     HISTORY: "history.json",

@@ -22,9 +22,20 @@ export function useFloatingButton() {
   const selectedAgentColor = selectedAgent && settings ? 
     settings.agents.find(a => a.id === selectedAgent)?.color : null;
 
+  // Check if button should be disabled (not in idle or recording state)
+  const isButtonDisabled = useCallback(() => {
+    return ![AppState.IDLE, AppState.RECORDING].includes(currentState);
+  }, [currentState]);
+
   // Main button click handler with auto-selection logic
   const handleMainButtonClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Disable clicks when not in idle or recording state
+    if (isButtonDisabled()) {
+      return;
+    }
+    
     if (isRecording) {
       stopRecording();
     } else {
@@ -34,7 +45,7 @@ export function useFloatingButton() {
       }
       startRecording();
     }
-  }, [isRecording, selectedAgent, settings, stopRecording, startRecording, selectAgent]);
+  }, [isRecording, selectedAgent, settings, stopRecording, startRecording, selectAgent, isButtonDisabled]);
 
   // Context menu handler
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -73,6 +84,7 @@ export function useFloatingButton() {
     selectedAgentColor,
     handleMainButtonClick,
     handleContextMenu,
-    getSpinClasses
+    getSpinClasses,
+    isButtonDisabled
   };
 }

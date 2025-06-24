@@ -1,6 +1,7 @@
 // Model types
 export type LLMModel = 'gpt-4' | 'gpt-4-turbo' | 'gpt-3.5-turbo';
 export type Language = 'ja' | 'en' | 'auto';
+export type UILanguage = 'ja' | 'en';
 export type AgentColor = string; // Could be restricted to specific colors
 
 export interface Agent {
@@ -17,7 +18,8 @@ export interface Agent {
 
 export interface AppSettings {
   openaiApiKey: string;
-  language: Language;
+  language: Language; // For speech recognition
+  uiLanguage: UILanguage; // For UI display
   agents: Agent[];
   autoStartup: boolean;
   systemTray: boolean;
