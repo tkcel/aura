@@ -45,6 +45,8 @@ const api = {
 
   // History operations
   getHistory: (): Promise<HistoryEntry[]> => ipcRenderer.invoke("get-history"),
+  
+  getHistoryCount: (): Promise<number> => ipcRenderer.invoke("get-history-count"),
 
   addHistoryEntry: (entry: Omit<HistoryEntry, "id">): Promise<string> =>
     ipcRenderer.invoke("add-history-entry", entry),
@@ -53,6 +55,12 @@ const api = {
     ipcRenderer.invoke("delete-history-entry", id),
 
   clearHistory: (): Promise<void> => ipcRenderer.invoke("clear-history"),
+  
+  checkHistoryBufferReduction: (newMaxEntries: number): Promise<{
+    wouldDelete: boolean;
+    deleteCount?: number;
+    currentCount?: number;
+  }> => ipcRenderer.invoke("check-history-buffer-reduction", newMaxEntries),
 
   // Window management
   showSettingsWindow: (): Promise<void> =>

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { t } from '../utils/i18n';
 import RestartConfirmModal from './RestartConfirmModal';
+import BufferReductionConfirmModal from './BufferReductionConfirmModal';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -27,6 +28,9 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
   const [apiTestResult, setApiTestResult] = useState<'success' | 'failure' | null>(null);
   const [activeSection, setActiveSection] = useState<'api' | 'voice' | 'system' | 'history'>('api');
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showBufferReductionConfirm, setShowBufferReductionConfirm] = useState(false);
+  const [pendingMaxHistoryEntries, setPendingMaxHistoryEntries] = useState<number | null>(null);
+  const [deleteCount, setDeleteCount] = useState(0);
 
   useEffect(() => {
     if (settings) {
@@ -70,8 +74,20 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
       changeLanguage(value as 'ja' | 'en');
     }
     
-    // 埋め込みモードでは自動保存
-    if (embedded) {
+    // 埋め込みモードでは自動保存（ただし、maxHistoryEntriesの削減チェックを行う）
+    if (embedded && field === 'maxHistoryEntries' && typeof value === 'number') {
+      window.electronAPI.checkHistoryBufferReduction(value).then(result => {
+        if (result.wouldDelete && result.deleteCount) {
+          setPendingMaxHistoryEntries(value);
+          setDeleteCount(result.deleteCount);
+          setShowBufferReductionConfirm(true);
+        } else {
+          updateSettings({ [field]: value }).catch(_error => {
+            // Error handling removed for production
+          });
+        }
+      });
+    } else if (embedded) {
       updateSettings({ [field]: value }).catch(_error => {
         // Error handling removed for production
       });
@@ -80,6 +96,20 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
 
   const handleSave = async () => {
     try {
+      // Check if reducing maxHistoryEntries would delete entries
+      const currentSettings = settings || {};
+      const currentMaxEntries = currentSettings.maxHistoryEntries || 100;
+      
+      if (formData.maxHistoryEntries < currentMaxEntries) {
+        const result = await window.electronAPI.checkHistoryBufferReduction(formData.maxHistoryEntries);
+        if (result.wouldDelete && result.deleteCount) {
+          setPendingMaxHistoryEntries(formData.maxHistoryEntries);
+          setDeleteCount(result.deleteCount);
+          setShowBufferReductionConfirm(true);
+          return;
+        }
+      }
+      
       setShowRestartConfirm(true);
     } catch (error) {
       // Error handling removed for production
@@ -101,6 +131,26 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
 
   const handleRestartCancel = () => {
     setShowRestartConfirm(false);
+  };
+  
+  const handleBufferReductionConfirm = () => {
+    setShowBufferReductionConfirm(false);
+    setPendingMaxHistoryEntries(null);
+    
+    // 埋め込みモードの場合は設定を保存
+    if (embedded && pendingMaxHistoryEntries !== null) {
+      updateSettings({ maxHistoryEntries: pendingMaxHistoryEntries }).catch(_error => {
+        // Error handling removed for production
+      });
+    } else {
+      // 通常モードの場合は再起動確認ダイアログを表示
+      setShowRestartConfirm(true);
+    }
+  };
+  
+  const handleBufferReductionCancel = () => {
+    setShowBufferReductionConfirm(false);
+    setPendingMaxHistoryEntries(null);
   };
 
   const handleTestApi = async () => {
@@ -421,6 +471,12 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
         isOpen={showRestartConfirm}
         onConfirm={handleRestartConfirm}
         onCancel={handleRestartCancel}
+      />
+      <BufferReductionConfirmModal
+        isOpen={showBufferReductionConfirm}
+        deleteCount={deleteCount}
+        onConfirm={handleBufferReductionConfirm}
+        onCancel={handleBufferReductionCancel}
       />
     </div>
   );

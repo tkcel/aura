@@ -110,7 +110,7 @@ class AriaApp {
 
     fs.ensureDirSync(configDir);
     fs.ensureDirSync(this.audioDirectory);
-    this.loadHistory();
+    // History will be loaded asynchronously in initialize()
     const apiKey = this.settingsService.getApiKey();
     if (apiKey) {
       this.llmService.initializeOpenAI(apiKey);
@@ -133,11 +133,39 @@ class AriaApp {
       return this.settingsService.getSettings();
     });
 
-    ipcMain.handle("update-settings", (_, settings) => {
+    ipcMain.handle("update-settings", async (_, settings) => {
+      const oldSettings = this.settingsService.getSettings();
       this.settingsService.updateSettings(settings);
+      
       if (settings.openaiApiKey) {
         this.llmService.initializeOpenAI(settings.openaiApiKey);
       }
+      
+      // Check if maxHistoryEntries was reduced
+      if (settings.maxHistoryEntries !== undefined && 
+          settings.maxHistoryEntries < (oldSettings.maxHistoryEntries || 100) &&
+          this.history.length > settings.maxHistoryEntries) {
+        // Trim history to new max entries
+        const entriesToRemove = this.history.splice(settings.maxHistoryEntries);
+        
+        // Delete associated audio files for removed entries
+        for (const removedEntry of entriesToRemove) {
+          if (removedEntry.audioFilePath && fs.existsSync(removedEntry.audioFilePath)) {
+            try {
+              await fs.unlink(removedEntry.audioFilePath);
+            } catch (error) {
+              console.error("Failed to delete audio file:", error);
+            }
+          }
+        }
+        
+        // Save the trimmed history
+        this.saveHistory();
+        
+        // Update renderer
+        this.sendToRenderer("history-updated", this.history);
+      }
+      
       return true;
     });
 
@@ -223,14 +251,45 @@ class AriaApp {
     ipcMain.handle("get-history", () => {
       return this.history;
     });
+    
+    ipcMain.handle("get-history-count", () => {
+      // Get the latest count from the history file
+      try {
+        if (fs.existsSync(this.historyPath)) {
+          const rawHistory = fs.readJsonSync(this.historyPath);
+          return rawHistory.length;
+        }
+        return 0;
+      } catch (error) {
+        return 0;
+      }
+    });
 
     ipcMain.handle(
       "add-history-entry",
-      (_, entry: Omit<HistoryEntry, "id">) => {
+      async (_, entry: Omit<HistoryEntry, "id">) => {
         const id = generateId();
         const historyEntry: HistoryEntry = { id, ...entry };
 
         this.history.unshift(historyEntry); // Add to beginning
+        
+        // Check if history exceeds max entries and remove old entries
+        const maxEntries = this.settings?.maxHistoryEntries || 100;
+        if (this.history.length > maxEntries) {
+          const entriesToRemove = this.history.splice(maxEntries);
+          
+          // Delete associated audio files for removed entries
+          for (const removedEntry of entriesToRemove) {
+            if (removedEntry.audioFilePath && fs.existsSync(removedEntry.audioFilePath)) {
+              try {
+                await fs.unlink(removedEntry.audioFilePath);
+              } catch (error) {
+                console.error("Failed to delete audio file:", error);
+              }
+            }
+          }
+        }
+        
         this.saveHistory();
         this.sendToRenderer("history-updated", this.history);
 
@@ -260,6 +319,28 @@ class AriaApp {
       this.sendToRenderer("history-updated", this.history);
 
       return true;
+    });
+
+    ipcMain.handle("check-history-buffer-reduction", (_, newMaxEntries: number) => {
+      // Get the latest count directly from the history file
+      let currentCount = 0;
+      try {
+        if (fs.existsSync(this.historyPath)) {
+          const rawHistory = fs.readJsonSync(this.historyPath);
+          currentCount = rawHistory.length;
+        }
+      } catch (error) {
+        currentCount = 0;
+      }
+      
+      if (currentCount > newMaxEntries) {
+        return {
+          wouldDelete: true,
+          deleteCount: currentCount - newMaxEntries,
+          currentCount
+        };
+      }
+      return { wouldDelete: false };
     });
 
     ipcMain.handle("clear-history", async () => {
@@ -559,7 +640,7 @@ class AriaApp {
   /**
    * Loads history entries from the history file
    */
-  private loadHistory(): void {
+  private async loadHistory(): Promise<void> {
     try {
       if (fs.existsSync(this.historyPath)) {
         const rawHistory = fs.readJsonSync(this.historyPath);
@@ -570,6 +651,26 @@ class AriaApp {
             timestamp: new Date(entry.timestamp),
           })
         );
+        
+        // Check if loaded history exceeds max entries
+        const maxEntries = this.settings?.maxHistoryEntries || 100;
+        if (this.history.length > maxEntries) {
+          const entriesToRemove = this.history.splice(maxEntries);
+          
+          // Delete associated audio files for removed entries
+          for (const removedEntry of entriesToRemove) {
+            if (removedEntry.audioFilePath && fs.existsSync(removedEntry.audioFilePath)) {
+              try {
+                await fs.unlink(removedEntry.audioFilePath);
+              } catch (error) {
+                console.error("Failed to delete audio file:", error);
+              }
+            }
+          }
+          
+          // Save the trimmed history
+          this.saveHistory();
+        }
       }
     } catch (error) {
       this.history = [];
@@ -897,6 +998,9 @@ class AriaApp {
    * Initializes the application by creating windows and setting up services
    */
   public async initialize(): Promise<void> {
+    // Load history first
+    await this.loadHistory();
+    
     // Request accessibility permissions on macOS
     if (process.platform === "darwin") {
       if (!systemPreferences.isTrustedAccessibilityClient(false)) {

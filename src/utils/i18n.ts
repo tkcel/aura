@@ -151,6 +151,8 @@ const translations: Record<Language, Translations> = {
     "settingsModal.saveConfig": "SAVE CONFIG",
     "settingsModal.uiLanguage": "UI LANGUAGE",
     "settingsModal.uiLanguageDesc": "Language for user interface display",
+    "settingsModal.bufferReduction.title": "HISTORY BUFFER REDUCTION",
+    "settingsModal.bufferReduction.message": "The buffer size you are trying to set will delete {count} older records. Do you want to proceed?",
 
     // Tab Navigation
     "tab.history": "HISTORY",
@@ -373,6 +375,8 @@ const translations: Record<Language, Translations> = {
     "settingsModal.saveConfig": "設定を保存",
     "settingsModal.uiLanguage": "UI言語",
     "settingsModal.uiLanguageDesc": "ユーザーインターフェースの表示言語",
+    "settingsModal.bufferReduction.title": "履歴バッファの削減",
+    "settingsModal.bufferReduction.message": "設定しようとしている件数を超えた過去の記録が{count}件削除されます。よろしいですか？",
 
     // Tab Navigation
     "tab.history": "履歴",
@@ -464,22 +468,29 @@ export function getCurrentLanguage(): Language {
   return currentLanguage;
 }
 
-export function t(key: string, fallback?: string): string {
-  const translation = translations[currentLanguage]?.[key];
-  if (translation) {
-    return translation;
-  }
-
-  // Fallback to English if not found in current language
-  if (currentLanguage !== "en") {
-    const englishTranslation = translations.en[key];
-    if (englishTranslation) {
-      return englishTranslation;
+export function t(key: string, params?: Record<string, any>, fallback?: string): string {
+  let translation = translations[currentLanguage]?.[key];
+  
+  if (!translation) {
+    // Fallback to English if not found in current language
+    if (currentLanguage !== "en") {
+      translation = translations.en[key];
     }
   }
-
-  // Return fallback or key if nothing found
-  return fallback || key;
+  
+  if (!translation) {
+    // Return fallback or key if nothing found
+    return fallback || key;
+  }
+  
+  // Replace template variables if params provided
+  if (params) {
+    Object.entries(params).forEach(([param, value]) => {
+      translation = translation.replace(new RegExp(`\\{${param}\\}`, 'g'), String(value));
+    });
+  }
+  
+  return translation;
 }
 
 export function initializeLanguage(): Language {
