@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
 import {
   app,
   BrowserWindow,
@@ -52,6 +52,164 @@ import { getErrorMessage } from "./utils/errors";
 import { generateId } from "./utils/helpers";
 
 /**
+ * Class for detecting cursor state and managing auto-paste functionality
+ */
+class CursorStateManager {
+  private isTyping = false;
+  private lastInputTime = 0;
+
+  /**
+   * Check if the system is currently in a text input state
+   */
+  async checkCursorState(): Promise<boolean> {
+    try {
+      if (process.platform === "darwin") {
+        return await this.checkMacOSCursorState();
+      } else {
+        // For Windows/Linux, implement basic fallback
+        return false;
+      }
+    } catch (error) {
+      console.error("Failed to check cursor state:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Check cursor state on macOS using Accessibility API
+   */
+  private async checkMacOSCursorState(): Promise<boolean> {
+    try {
+      // Get active application and focused element
+      const script = `
+        tell application "System Events"
+          set frontApp to name of first application process whose frontmost is true
+          try
+            set focusedElement to name of (focused UI element of window 1 of application process frontApp)
+            set elementRole to role of (focused UI element of window 1 of application process frontApp)
+            return frontApp & "|" & focusedElement & "|" & elementRole
+          on error
+            return frontApp & "|none|none"
+          end try
+        end tell
+      `;
+
+      const result = execSync(`osascript -e '${script}'`, {
+        encoding: "utf8",
+        timeout: 2000,
+      }).trim();
+
+      const [appName, elementName, elementRole] = result.split("|");
+
+      // Check if the focused element is a text input
+      const textInputRoles = ["AXTextField", "AXTextArea", "AXComboBox"];
+      const isTextInput = textInputRoles.includes(elementRole);
+
+      // Check if the application is known to be text-oriented
+      const isTextApp = this.isTextEditingApp(appName);
+
+      return isTextInput || (isTextApp && elementRole !== "none");
+    } catch (error) {
+      console.error("macOS cursor state check failed:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if the application is commonly used for text editing
+   */
+  private isTextEditingApp(appName: string): boolean {
+    if (!appName) return false;
+
+    const textApps = [
+      "Safari",
+      "Google Chrome",
+      "Firefox",
+      "Microsoft Word",
+      "Microsoft Excel",
+      "Microsoft PowerPoint",
+      "TextEdit",
+      "Notes",
+      "Visual Studio Code",
+      "Xcode",
+      "Terminal",
+      "iTerm",
+      "Slack",
+      "Discord",
+      "Teams",
+      "Notion",
+      "Obsidian",
+      "Finder", // For renaming files
+    ];
+
+    return textApps.some((app) =>
+      appName.toLowerCase().includes(app.toLowerCase())
+    );
+  }
+
+  /**
+   * Paste text to the active application
+   */
+  async pasteText(text: string): Promise<boolean> {
+    try {
+      // Set text to clipboard
+      clipboard.writeText(text);
+
+      if (process.platform === "darwin") {
+        // macOS: Send Cmd+V
+        const script = `
+          tell application "System Events"
+            keystroke "v" using command down
+          end tell
+        `;
+        execSync(`osascript -e '${script}'`, { timeout: 2000 });
+        return true;
+      } else {
+        // Windows/Linux: Send Ctrl+V
+        // For a more complete implementation, consider using robotjs
+        return false;
+      }
+    } catch (error) {
+      console.error("Failed to paste text:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Get information about the currently active window
+   */
+  async getActiveWindowInfo(): Promise<{ appName: string; windowTitle: string } | null> {
+    try {
+      if (process.platform === "darwin") {
+        const script = `
+          tell application "System Events"
+            set frontApp to name of first application process whose frontmost is true
+            try
+              set windowTitle to name of window 1 of application process frontApp
+              return frontApp & "|" & windowTitle
+            on error
+              return frontApp & "|"
+            end try
+          end tell
+        `;
+
+        const result = execSync(`osascript -e '${script}'`, {
+          encoding: "utf8",
+          timeout: 2000,
+        }).trim();
+
+        const [appName, windowTitle] = result.split("|");
+        return { appName: appName || "", windowTitle: windowTitle || "" };
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to get active window info:", error);
+      return null;
+    }
+  }
+}
+
+/**
  * Main application class that manages Electron windows, services, and IPC communication
  */
 class AriaApp {
@@ -72,6 +230,9 @@ class AriaApp {
 
   /** LLM service for AI processing */
   private llmService: LLMService;
+
+  /** Cursor state manager for auto-paste functionality */
+  private cursorStateManager: CursorStateManager;
 
   /** Current application state */
   private currentState: AppState = AppState.IDLE;
@@ -103,6 +264,7 @@ class AriaApp {
   constructor() {
     this.settingsService = new SettingsService();
     this.llmService = new LLMService();
+    this.cursorStateManager = new CursorStateManager();
 
     const configDir = path.join(os.homedir(), APP_CONFIG.CONFIG_DIR);
     this.historyPath = path.join(configDir, APP_CONFIG.FILES.HISTORY);
@@ -217,6 +379,9 @@ class AriaApp {
         setTimeout(() => {
           this.setAppState(AppState.IDLE);
         }, 3000);
+
+        // Handle the result (auto-paste or show result window)
+        await this.handleProcessingComplete(llmResult, text);
 
         return { success: true, result: llmResult };
       } catch (error) {
@@ -492,6 +657,16 @@ class AriaApp {
       }
     });
 
+    // Handle auto-paste for transcription results (without LLM processing)
+    ipcMain.handle("auto-paste-transcription", async (_, text: string) => {
+      try {
+        await this.handleProcessingComplete(text, text);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: getErrorMessage(error) };
+      }
+    });
+
     // Handle LLM result from renderer
     ipcMain.on("notify-llm-result", (_, result: ProcessingResult) => {
       this.currentLlmResult = result;
@@ -615,6 +790,130 @@ class AriaApp {
 
     // Set state to show transcription is ready for processing
     this.setAppState(AppState.IDLE);
+  }
+
+  /**
+   * Check if the system is currently in a text input state
+   * @returns Promise<boolean> - True if cursor is in a text input field
+   */
+  private async checkCursorState(): Promise<boolean> {
+    return this.cursorStateManager.checkCursorState();
+  }
+
+  /**
+   * Paste text to the currently active application
+   * @param text - Text to paste
+   * @returns Promise<boolean> - True if paste was successful
+   */
+  private async pasteText(text: string): Promise<boolean> {
+    return this.cursorStateManager.pasteText(text);
+  }
+
+  /**
+   * Get information about the currently active window
+   * @returns Promise with app name and window title, or null if unavailable
+   */
+  private async getActiveWindowInfo(): Promise<{ appName: string; windowTitle: string } | null> {
+    return this.cursorStateManager.getActiveWindowInfo();
+  }
+
+  /**
+   * Handle processing completion and decide between auto-paste or result window
+   * @param result - The processing result (LLM response)
+   * @param originalText - The original input text (STT result)
+   */
+  private async handleProcessingComplete(result: string, originalText: string): Promise<void> {
+    try {
+      // Check if auto-paste is enabled in settings
+      const settings = this.settingsService.getSettings();
+      if (!settings.autoPaste) {
+        // Auto-paste disabled, always show result window
+        this.showResultWindow();
+        return;
+      }
+
+      // Get active window info to check if it's our own app
+      const activeWindowInfo = await this.getActiveWindowInfo();
+      
+      // Don't auto-paste if our own app is active
+      if (activeWindowInfo?.appName && 
+          (activeWindowInfo.appName.toLowerCase().includes('aria') || 
+           activeWindowInfo.appName.toLowerCase().includes('aura'))) {
+        this.showResultWindow();
+        return;
+      }
+
+      // Check if cursor is in a text input state
+      const isTextInputActive = await this.checkCursorState();
+      
+      if (isTextInputActive) {
+        // Auto-paste the result
+        const pasteSuccess = await this.pasteText(result);
+        
+        if (pasteSuccess) {
+          console.log("Auto-pasted result to active application");
+          // Store in history but don't show result window
+          await this.addToHistory(originalText, result);
+        } else {
+          // Fallback to result window if paste failed
+          console.log("Auto-paste failed, showing result window");
+          this.showResultWindow();
+        }
+      } else {
+        // Show result window if not in text input state
+        this.showResultWindow();
+      }
+    } catch (error) {
+      console.error("Error in handleProcessingComplete:", error);
+      // Fallback to result window on error
+      this.showResultWindow();
+    }
+  }
+
+  /**
+   * Add entry to history
+   * @param transcription - The original transcription
+   * @param response - The AI response
+   */
+  private async addToHistory(transcription: string, response: string): Promise<void> {
+    try {
+      const selectedAgent = this.settingsService.getAgent(this.selectedAgent || "");
+      const id = generateId();
+      const historyEntry: HistoryEntry = {
+        id,
+        agentId: this.selectedAgent || "",
+        agentName: selectedAgent?.name || "Unknown",
+        transcription,
+        response,
+        timestamp: new Date(),
+        agentAutoProcessAi: selectedAgent?.autoProcessAi || false,
+      };
+
+      this.history.unshift(historyEntry);
+
+      // Check if history exceeds max entries and remove old entries
+      const settings = this.settingsService.getSettings();
+      const maxEntries = settings?.maxHistoryEntries || 100;
+      if (this.history.length > maxEntries) {
+        const entriesToRemove = this.history.splice(maxEntries);
+        
+        // Delete associated audio files for removed entries
+        for (const removedEntry of entriesToRemove) {
+          if (removedEntry.audioFilePath && fs.existsSync(removedEntry.audioFilePath)) {
+            try {
+              await fs.unlink(removedEntry.audioFilePath);
+            } catch (error) {
+              console.error("Failed to delete audio file:", error);
+            }
+          }
+        }
+      }
+
+      this.saveHistory();
+      this.sendToRenderer("history-updated", this.history);
+    } catch (error) {
+      console.error("Failed to add to history:", error);
+    }
   }
 
   /**

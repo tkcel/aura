@@ -86,6 +86,9 @@ const api = {
 
   pasteText: (text: string): Promise<boolean> =>
     ipcRenderer.invoke("paste-text", text),
+  
+  autoPasteTranscription: (text: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("auto-paste-transcription", text),
 
   showResultWindow: (): Promise<void> =>
     ipcRenderer.invoke("show-result-window"),

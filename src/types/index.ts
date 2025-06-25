@@ -26,6 +26,7 @@ export interface AppSettings {
   soundNotifications: boolean;
   saveAudioFiles: boolean;
   maxHistoryEntries: number;
+  autoPaste: boolean;
 }
 
 export interface STTResult {

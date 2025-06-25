@@ -38,7 +38,8 @@ export class SettingsService {
       systemTray: true,
       soundNotifications: true,
       saveAudioFiles: false,
-      maxHistoryEntries: 100
+      maxHistoryEntries: 100,
+      autoPaste: true
     };
   }
 

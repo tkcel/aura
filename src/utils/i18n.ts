@@ -151,6 +151,8 @@ const translations: Record<Language, Translations> = {
     "settingsModal.saveConfig": "SAVE CONFIG",
     "settingsModal.uiLanguage": "UI LANGUAGE",
     "settingsModal.uiLanguageDesc": "Language for user interface display",
+    "settingsModal.autoPaste": "AUTO-PASTE TO ACTIVE APPLICATION",
+    "settingsModal.autoPasteDesc": "Automatically paste results to text input fields",
     "settingsModal.bufferReduction.title": "HISTORY BUFFER REDUCTION",
     "settingsModal.bufferReduction.message": "The buffer size you are trying to set will delete {count} older records. Do you want to proceed?",
 
@@ -375,6 +377,8 @@ const translations: Record<Language, Translations> = {
     "settingsModal.saveConfig": "設定を保存",
     "settingsModal.uiLanguage": "UI言語",
     "settingsModal.uiLanguageDesc": "ユーザーインターフェースの表示言語",
+    "settingsModal.autoPaste": "アクティブアプリへの自動ペースト",
+    "settingsModal.autoPasteDesc": "テキスト入力フィールドに結果を自動的にペースト",
     "settingsModal.bufferReduction.title": "履歴バッファの削減",
     "settingsModal.bufferReduction.message": "設定しようとしている件数を超えた過去の記録が{count}件削除されます。よろしいですか？",
 

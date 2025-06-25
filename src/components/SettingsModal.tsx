@@ -22,6 +22,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
     soundNotifications: true,
     saveAudioFiles: false,
     maxHistoryEntries: 100,
+    autoPaste: true,
   });
 
   const [isTestingApi, setIsTestingApi] = useState(false);
@@ -43,6 +44,7 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
         soundNotifications: settings.soundNotifications !== undefined ? settings.soundNotifications : true,
         saveAudioFiles: settings.saveAudioFiles || false,
         maxHistoryEntries: settings.maxHistoryEntries || 100,
+        autoPaste: settings.autoPaste !== undefined ? settings.autoPaste : true,
       });
     }
   }, [settings]);
@@ -379,6 +381,28 @@ export default function SettingsModal({ onClose, embedded = false }: SettingsMod
             <div className="hud-text text-white/50 mt-1 text-xs">
               → {t('settingsModal.autoPurge')}
             </div>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={formData.autoPaste}
+                onChange={(e) => handleInputChange('autoPaste', e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 border border-white/30 transition-all duration-300 ${
+                formData.autoPaste ? 'bg-white/20 border-white/60' : 'bg-black/50'
+              }`}>
+                {formData.autoPaste && (
+                  <div className="w-full h-full flex items-center justify-center text-white/90 text-xs">●</div>
+                )}
+              </div>
+            </div>
+            <span className="hud-text">{t('settingsModal.autoPaste')}</span>
+          </label>
+          <div className="hud-text text-white/50 ml-7 text-xs">
+            → {t('settingsModal.autoPasteDesc')}
           </div>
         </div>
       </div>
